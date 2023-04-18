@@ -29,62 +29,61 @@ dbExecute(con, "DROP TABLE IF EXISTS Journal")
 dbExecute(con, "DROP TABLE IF EXISTS Article")
 dbExecute(con, "DROP TABLE IF EXISTS Article_author")
 
-# Create the Journals table
-dbExecute(con, "
-CREATE TABLE Journals (
-  journal_id INTEGER PRIMARY KEY AUTOINCREMENT,
-  ISSN TEXT NOT NULL,
-  issn_type TEXT,
-  title TEXT,
-  iso_abbreviation TEXT
-)")
+create_tables <- function(con) {
+  # Create the Journals table
+  dbExecute(con, "
+  CREATE TABLE Journals (
+    journal_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ISSN TEXT NOT NULL,
+    issn_type TEXT,
+    title TEXT,
+    iso_abbreviation TEXT
+  )")
+  
+  # Create the Articles table
+  dbExecute(con, "
+  CREATE TABLE Articles (
+    pmid INTEGER PRIMARY KEY,
+    journal_id INTEGER NOT NULL,
+    article_title TEXT,
+    cited_medium TEXT,
+    journal_volume TEXT,
+    journal_issue TEXT,
+    publication_year INTEGER,
+    publication_month INTEGER,
+    publication_day INTEGER,
+    publication_season TEXT,
+    medline_date TEXT,
+    FOREIGN KEY (journal_id) REFERENCES journal(journal_id)
+  )")
+  
+  # Create the Authors table
+  dbExecute(con, "
+  CREATE TABLE Authors (
+    author_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    last_name TEXT,
+    fore_name TEXT,
+    initials TEXT,
+    suffix TEXT,
+    collective_name TEXT,
+    affiliation TEXT
+  )")
+  
+  # Author to Article Link
+  dbExecute(con, "
+  CREATE TABLE Article_author (
+    pmid INTEGER NOT NULL,
+    author_id INTEGER NOT NULL,
+    FOREIGN KEY (pmid) REFERENCES Articles(pmid),
+    FOREIGN KEY (author_id) REFERENCES Authors(author_id)
+  )")
+}
 
-# Create the Articles table
-dbExecute(con, "
-CREATE TABLE Articles (
-  pmid INTEGER PRIMARY KEY,
-  journal_id INTEGER NOT NULL,
-  article_title TEXT,
-  cited_medium TEXT,
-  journal_volume TEXT,
-  journal_issue TEXT,
-  publication_year INTEGER,
-  publication_month INTEGER,
-  publication_day INTEGER,
-  publication_season TEXT,
-  medline_date TEXT,
-  FOREIGN KEY (journal_id) REFERENCES journal(journal_id)
-)")
-
-# Create the Authors table
-dbExecute(con, "
-CREATE TABLE Authors (
-  author_id INTEGER PRIMARY KEY AUTOINCREMENT,
-  last_name TEXT,
-  fore_name TEXT,
-  initials TEXT,
-  suffix TEXT,
-  collective_name TEXT,
-  affiliation TEXT
-)")
-
-# Author to Article Link
-dbExecute(con, "
-CREATE TABLE Article_author (
-  pmid INTEGER NOT NULL,
-  author_id INTEGER NOT NULL,
-  FOREIGN KEY (pmid) REFERENCES Articles(pmid),
-  FOREIGN KEY (author_id) REFERENCES Authors(author_id)
-)")
-
-
-# Load the XML and DTD content from the URL and validate
-dtd_url <- "https://raw.githubusercontent.com/sahsahil1998/Mine-a-Database/main/pubmed.dtd"
-xml_url <- "https://raw.githubusercontent.com/sahsahil1998/Mine-a-Database/main/pubmed-tfm-xml.xml"
-xmlOBJ <- xmlTreeParse(xml_url, dtd_url, validate = TRUE)
-r <- xmlRoot(xmlOBJ)
-count <- xmlSize(r)
-print(count)
+# Function to fetch XML data and validate
+fetch_xml_data <- function(xml_url, dtd_url) {
+  xmlOBJ <- xmlTreeParse(xml_url, dtd_url, validate = TRUE)
+  return(xmlRoot(xmlOBJ))
+}
 
 # Function to convert PubDate into a list with year, month, and day
 convert_pubdate <- function(pubdate_node) {
@@ -93,6 +92,7 @@ convert_pubdate <- function(pubdate_node) {
   day <- as.integer(xmlValue(pubdate_node[["Day"]]))
   return(list(year = year, month = month, day = day))
 }
+
 
 articles <- xmlElementsByTagName(r, "Article")
 
@@ -150,9 +150,18 @@ for (article in articles) {
   }
 }
 
-
+# Main script
+dtd_url <- "https://raw.githubusercontent.com/sahsahil1998/Mine-a-Database/main/pubmed.dtd"
+xml_url <- "https://raw.githubusercontent.com/sahsahil1998/Mine-a-Database/main/pubmed-tfm-xml.xml"
                     
+create_tables(con)
+xml_root <- fetch_xml_data(xml_url, dtd_url)
+# Get the count
+count <- xmlSize(xml_root)
+print(count)
 
+parsed_data <- parse_xml_data(xml_root)
+process_data(con, parsed_data)
 
 
 
