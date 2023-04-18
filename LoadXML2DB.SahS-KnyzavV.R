@@ -1,3 +1,10 @@
+# ----------------------------------------------------------------------------
+# Author: Sahil Sah, Veniamin Knyazev
+# Course: CS5200 - Practicum 2
+# Description: Script to fetch, parse, and store XML data into SQLite tables
+# ----------------------------------------------------------------------------
+
+
 # List of required packages
 packages <- c("XML", "httr", "RSQLite", "DBI")
 
