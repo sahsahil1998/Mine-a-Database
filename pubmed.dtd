@@ -1,4 +1,4 @@
-
+<!DOCTYPE Publications [
 <!ELEMENT Publications (Article+)>
 <!ELEMENT Article (PubDetails)>
 <!ATTLIST Article PMID CDATA #REQUIRED>
@@ -14,13 +14,20 @@
 <!ELEMENT Year (#PCDATA)>
 <!ELEMENT Month (#PCDATA)>
 <!ELEMENT Day (#PCDATA)>
+<!ELEMENT Season (#PCDATA)>
+<!ELEMENT MedlineDate (#PCDATA)>
 <!ELEMENT Title (#PCDATA)>
 <!ELEMENT ISOAbbreviation (#PCDATA)>
 <!ELEMENT ArticleTitle (#PCDATA)>
 <!ELEMENT AuthorList (Author+)>
-<!ATTLIST AuthorList CompleteYN CDATA #REQUIRED>
-<!ELEMENT Author (LastName, ForeName, Initials)>
+<!ATTLIST AuthorList CompleteYN (Y | N) "Y">
+<!ELEMENT Author (LastName, ForeName, Initials, Suffix)>
 <!ATTLIST Author ValidYN CDATA #REQUIRED>
 <!ELEMENT LastName (#PCDATA)>
 <!ELEMENT ForeName (#PCDATA)>
 <!ELEMENT Initials (#PCDATA)>
+<!ELEMENT Suffix (#PCDATA)>
+<!ELEMENT AffiliationInfo (#PCDATA)> 
+<!ELEMENT Affiliation (#PCDATA)> 
+<!ELEMENT CollectiveName (#PCDATA)>
+]>
