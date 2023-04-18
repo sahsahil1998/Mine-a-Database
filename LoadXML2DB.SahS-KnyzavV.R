@@ -72,7 +72,7 @@ CREATE TABLE Article_author (
 
 
 # Load the XML content from the URL (or a local file)
-url <- "https://your_xml_file_url.xml"
+url <- "https://xmlfile.xml"
 xml_content <- read_xml(url)
 
 # Parse the XML content
