@@ -1,5 +1,5 @@
 # List of required packages
-packages <- c("xml2", "httr", "RSQLite")
+packages <- c("XML", "httr", "RSQLite", "DBI")
 
 # Install missing packages
 install_packages <- function(pkg) {
@@ -17,10 +17,10 @@ lapply(packages, requireNamespace, quietly = TRUE)
 con <- dbConnect(RSQLite::SQLite(), ":memory:")
 
 # Dropping tables if it exists
-dbExecute(dbcon, "DROP TABLE IF EXISTS Author")
-dbExecute(dbcon, "DROP TABLE IF EXISTS Journal")
-dbExecute(dbcon, "DROP TABLE IF EXISTS Article")
-dbExecute(dbcon, "DROP TABLE IF EXISTS Article_author")
+dbExecute(con, "DROP TABLE IF EXISTS Author")
+dbExecute(con, "DROP TABLE IF EXISTS Journal")
+dbExecute(con, "DROP TABLE IF EXISTS Article")
+dbExecute(con, "DROP TABLE IF EXISTS Article_author")
 
 # Create the Journals table
 dbExecute(con, "
@@ -58,7 +58,7 @@ CREATE TABLE Authors (
   initials TEXT,
   suffix TEXT,
   collective_name TEXT,
-  affiliation TEXT,
+  affiliation TEXT
 )")
 
 # Author to Article Link
@@ -71,71 +71,78 @@ CREATE TABLE Article_author (
 )")
 
 
-# Load the XML content from the URL (or a local file)
-url <- "https://www.dropbox.com/s/ciokgebld9hr55h/pubmed-tfm-xml.xml?dl=0"
-xml_content <- read_xml(url)
+# Load the XML and DTD content from the URL and validate
+dtd_url <- "https://raw.githubusercontent.com/sahsahil1998/Mine-a-Database/main/pubmed.dtd"
+xml_url <- "https://raw.githubusercontent.com/sahsahil1998/Mine-a-Database/main/pubmed-tfm-xml.xml"
+xmlOBJ <- xmlTreeParse(xml_url, dtd_url, validate = TRUE)
+r <- xmlRoot(xmlOBJ)
+count <- xmlSize(r)
+print(count)
 
-# Parse the XML content
-articles <- xml_find_all(xml_content, "//Article")
+# Function to convert PubDate into a list with year, month, and day
+convert_pubdate <- function(pubdate_node) {
+  year <- as.integer(xmlValue(pubdate_node[["Year"]]))
+  month <- xmlValue(pubdate_node[["Month"]])
+  day <- as.integer(xmlValue(pubdate_node[["Day"]]))
+  return(list(year = year, month = month, day = day))
+}
 
-# Loop through the articles and insert data into the tables
+articles <- xmlElementsByTagName(r, "Article")
+
 for (article in articles) {
-  pmid <- as.integer(xml_attr(article, "PMID"))
-  journal <- xml_find_first(article, ".//Journal")
+  pmid <- as.integer(xmlGetAttr(article, "PMID"))
   
-  # Insert journal data if not exists
-  issn <- xml_text(xml_find_first(journal, ".//ISSN"))
-  issn_type <- xml_attr(xml_find_first(journal, ".//ISSN"), "IssnType")
-  title <- xml_text(xml_find_first(journal, ".//Title"))
-  iso_abbreviation <- xml_text(xml_find_first(journal, ".//ISOAbbreviation"))
+  # Extract Journal information
+  journal_node <- getNodeSet(article, ".//Journal")
+  issn <- xmlValue(journal_node[[1]][["ISSN"]])
+  issn_type <- xmlGetAttr(journal_node[[1]][["ISSN"]], "IssnType")
+  title <- xmlValue(journal_node[[1]][["Title"]])
+  iso_abbreviation <- xmlValue(journal_node[[1]][["ISOAbbreviation"]])
   
-  journal_id <- dbGetQuery(con, paste0("SELECT journal_id FROM Journals WHERE ISSN = '", issn, "'"))
+  # Extract Article information
+  article_title <- xmlValue(getNodeSet(article, ".//ArticleTitle")[[1]])
+  cited_medium <- xmlGetAttr(getNodeSet(article, ".//JournalIssue")[[1]], "CitedMedium")
+  journal_volume <- xmlValue(getNodeSet(article, ".//JournalIssue/Volume")[[1]])
+  journal_issue <- xmlValue(getNodeSet(article, ".//JournalIssue/Issue")[[1]])
+  pubdate <- convert_pubdate(getNodeSet(article, ".//PubDate")[[1]])
   
-  if (nrow(journal_id) == 0) {
-    dbExecute(con, "INSERT INTO Journals (ISSN, issn_type, title, iso_abbreviation) VALUES (?, ?, ?, ?)", 
-              params = list(issn, issn_type, title, iso_abbreviation))
-    journal_id <- dbGetQuery(con, paste0("SELECT journal_id FROM Journals WHERE ISSN = '", issn, "'"))
-  }
+  # Extract Authors information
+  author_nodes <- getNodeSet(article, ".//Author")
+  authors <- lapply(author_nodes, function(author_node) {
+    last_name <- xmlValue(author_node[["LastName"]])
+    fore_name <- xmlValue(author_node[["ForeName"]])
+    initials <- xmlValue(author_node[["Initials"]])
+    return(list(last_name = last_name, fore_name = fore_name, initials = initials))
+  })
   
-  # Insert article data
-  article_title <- xml_text(xml_find_first(article, ".//ArticleTitle"))
-  journal_issue <- xml_find_first(article, ".//JournalIssue")
-  cited_medium <- xml_attr(journal_issue, "CitedMedium")
-  volume <- xml_text(xml_find_first(journal_issue, ".//Volume"))
-  issue <- xml_text(xml_find_first(journal_issue, ".//Issue"))
-  pub_date <- xml_find_first(journal_issue, ".//PubDate")
-  year <- as.integer(xml_text(xml_find_first(pub_date, ".//Year")))
-  month <- xml_text(xml_find_first(pub_date, ".//Month"))
-  month <- xml_text(xml_find_first(pub_date, ".//Month"))
-  day <- xml_text(xml_find_first(pub_date, ".//Day"))
+  # Insert data into the respective tables
+  # Insert Journal data
+  dbExecute(con, "INSERT OR IGNORE INTO Journals (ISSN, issn_type, title, iso_abbreviation) VALUES (?, ?, ?, ?)", 
+            list(issn, issn_type, title, iso_abbreviation))
   
-  dbExecute(con, "INSERT INTO Articles (pmid, journal_id, article_title, cited_medium, journal_volume, journal_issue, publication_year, publication_month, publication_day) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            params = list(pmid, journal_id$journal_id, article_title, cited_medium, volume, issue, year, month, day))
+  # Get the journal_id
+  journal_id <- dbGetQuery(con, "SELECT journal_id FROM Journals WHERE ISSN = ?", list(issn))$journal_id
   
-  # Insert author data
-  author_list <- xml_find_first(article, ".//AuthorList")
-  authors <- xml_find_all(author_list, ".//Author")
+  # Insert Article data
+  dbExecute(con, "INSERT OR IGNORE INTO Articles (pmid, journal_id, article_title, cited_medium, journal_volume, journal_issue, 
+            publication_year, publication_month, publication_day) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", 
+            list(pmid, journal_id, article_title, cited_medium, journal_volume, journal_issue, pubdate$year, pubdate$month, pubdate$day))
   
+  # Insert Authors and Article_author data
   for (author in authors) {
-    last_name <- xml_text(xml_find_first(author, ".//LastName"))
-    fore_name <- xml_text(xml_find_first(author, ".//ForeName"))
-    initials <- xml_text(xml_find_first(author, ".//Initials"))
-    suffix <- xml_text(xml_find_first(author, ".//Suffix"))
+    # Insert Author data
+    dbExecute(con, "INSERT OR IGNORE INTO Authors (last_name, fore_name, initials) VALUES (?, ?, ?)", 
+              list(author$last_name, author$fore_name, author$initials))
     
-    # Check if author exists in the Authors table
-    author_id <- dbGetQuery(con, paste0("SELECT author_id FROM Authors WHERE last_name = '", last_name, "' AND fore_name = '", fore_name, "' AND initials = '", initials, "'"))
+    # Get the author_id
+    author_id <- dbGetQuery(con, "SELECT author_id FROM Authors WHERE last_name = ? AND fore_name = ? AND initials = ?", 
+                            list(author$last_name, author$fore_name, author$initials))$author_id
     
-    if (nrow(author_id) == 0) {
-      dbExecute(con, "INSERT INTO Authors (last_name, fore_name, initials, suffix) VALUES (?, ?, ?, ?)",
-                params = list(last_name, fore_name, initials, suffix))
-      author_id <- dbGetQuery(con, paste0("SELECT author_id FROM Authors WHERE last_name = '", last_name, "' AND fore_name = '", fore_name, "' AND initials = '", initials, "'"))
-    }
-    
-    # Insert data into the Article_author table
-    dbExecute(con, "INSERT INTO Article_author (pmid, author_id) VALUES (?, ?)",
-              params = list(pmid, author_id$author_id))
+    # Insert Article_author data
+    dbExecute(con, "INSERT OR IGNORE INTO Article_author (pmid, author_id) VALUES (?, ?)", list(pmid, author_id))
   }
 }
+
 
                     
 
