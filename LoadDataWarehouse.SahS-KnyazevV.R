@@ -36,7 +36,6 @@ dbGetQuery(mysqlCon, "SHOW DATABASES")
 # Select the newly created database
 dbExecute(mysqlCon, "USE pubmedDB")
 
-# Dropping tables if exists
 
 # Create the Journal Dimension table
 dbExecute(mysqlCon, "CREATE TABLE Journal_Dim (
