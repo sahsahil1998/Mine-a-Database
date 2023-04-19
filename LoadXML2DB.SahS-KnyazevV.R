@@ -6,7 +6,7 @@
 
 
 # List of required packages
-packages <- c("XML", "httr", "RSQLite", "DBI")
+packages <- c("XML", "httr", "RSQLite", "DBI", "xml2", "readr")
 
 # Install missing packages
 install_packages <- function(pkg) {
@@ -19,12 +19,20 @@ install_packages(packages)
 
 # Load the required packages
 lapply(packages, requireNamespace, quietly = TRUE)
+library(RSQLite)
+library(xml2)
+library(readr)
+library(httr)
+library(DBI)
+library(XML)
 
 # Create a new SQLite connection
-con <- dbConnect(RSQLite::SQLite(), ":memory:")
+con <- dbConnect(RSQLite::SQLite(), "pubmed.db")
 
 # Dropping tables if it exists
-dbExecute(con, "DROP TABLE IF EXISTS Author")
+dbExecute(con, "DROP TABLE IF EXISTS Journals")
+dbExecute(con, "DROP TABLE IF EXISTS Articles")
+dbExecute(con, "DROP TABLE IF EXISTS Authors")
 dbExecute(con, "DROP TABLE IF EXISTS Journal")
 dbExecute(con, "DROP TABLE IF EXISTS Article")
 dbExecute(con, "DROP TABLE IF EXISTS Article_author")
@@ -79,10 +87,23 @@ create_tables <- function(con) {
   )")
 }
 
-# Function to fetch XML data and validate
 fetch_xml_data <- function(xml_url, dtd_url) {
-  xmlOBJ <- xmlTreeParse(xml_url, dtd_url, validate = TRUE)
-  return(xmlRoot(xmlOBJ))
+  # Fetch the XML content
+  xml_content <- read_xml(xml_url)
+  
+  # Fetch the DTD content
+  dtd_content <- read_lines(dtd_url)
+  
+  # Combine the DTD content with the XML content
+  dtd_declaration <- paste0("<!DOCTYPE ", xml_name(xml_content), " [\n", paste(dtd_content, collapse = "\n"), "\n]>")
+  combined_content <- paste0(dtd_declaration, "\n", as.character(xml_content))
+  
+  # Parse the combined content and validate
+  xml_obj <- read_xml(combined_content, options = "NOENT")
+  
+  return(xml_obj)
+}
+
 }
 
 # Function to convert PubDate into a list with year, month, and day
@@ -94,7 +115,21 @@ convert_pubdate <- function(pubdate_node) {
 }
 
 
-articles <- xmlElementsByTagName(r, "Article")
+
+# Main script
+dtd_url <- "https://raw.githubusercontent.com/sahsahil1998/Mine-a-Database/main/pubmed.dtd"
+xml_url <- "https://raw.githubusercontent.com/sahsahil1998/Mine-a-Database/main/pubmed-tfm-xml.xml"
+
+                    
+create_tables(con)
+xml_root <- fetch_xml_data(xml_url, dtd_url)
+
+# Get the count
+count <- xmlSize(xml_root)
+print(count)
+
+articles <- xml2::xml_find_all(xml_root, ".//Article")
+
 
 for (article in articles) {
   pmid <- as.integer(xmlGetAttr(article, "PMID"))
@@ -149,16 +184,6 @@ for (article in articles) {
     dbExecute(con, "INSERT OR IGNORE INTO Article_author (pmid, author_id) VALUES (?, ?)", list(pmid, author_id))
   }
 }
-
-# Main script
-dtd_url <- "https://raw.githubusercontent.com/sahsahil1998/Mine-a-Database/main/pubmed.dtd"
-xml_url <- "https://raw.githubusercontent.com/sahsahil1998/Mine-a-Database/main/pubmed-tfm-xml.xml"
-                    
-create_tables(con)
-xml_root <- fetch_xml_data(xml_url, dtd_url)
-# Get the count
-count <- xmlSize(xml_root)
-print(count)
 
 parsed_data <- parse_xml_data(xml_root)
 process_data(con, parsed_data)
