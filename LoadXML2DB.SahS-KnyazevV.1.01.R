@@ -1,6 +1,6 @@
 
-
-
+#UTIL
+#################################START##########################################
 # List of required packages
 packages <- c("XML", "httr", "RSQLite", "DBI", "xml2", "readr", "curl")
 
@@ -13,14 +13,6 @@ install_packages <- function(pkg) {
 }
 install_packages(packages)
 
-# Dropping tables if it exists
-dbExecute(con, "DROP TABLE IF EXISTS Journals")
-dbExecute(con, "DROP TABLE IF EXISTS Articles")
-dbExecute(con, "DROP TABLE IF EXISTS Authors")
-dbExecute(con, "DROP TABLE IF EXISTS Affiliations")
-dbExecute(con, "DROP TABLE IF EXISTS Author_Affiliation")
-dbExecute(con, "DROP TABLE IF EXISTS Article_author")
-
 # Load the required packages
 lapply(packages, requireNamespace, quietly = TRUE)
 library(RSQLite)
@@ -31,9 +23,24 @@ library(DBI)
 library(XML)
 library(curl)
 
+#################################END############################################
 
-# Connect to the SQLite database (this will create a new file named "pubmed.sqlite" if it does not exist)
+
+
+# Connect to DB and create tables
+#################################START##########################################
+# Connect to the SQLite database
 con <- dbConnect(RSQLite::SQLite(), "pubmed2.db")
+
+
+# Dropping tables if it exists
+dbExecute(con, "DROP TABLE IF EXISTS Journals")
+dbExecute(con, "DROP TABLE IF EXISTS Articles")
+dbExecute(con, "DROP TABLE IF EXISTS Authors")
+dbExecute(con, "DROP TABLE IF EXISTS Affiliations")
+dbExecute(con, "DROP TABLE IF EXISTS Author_Affiliation")
+dbExecute(con, "DROP TABLE IF EXISTS Article_author")
+
 
 # Define the SQL statements to create the tables
 create_articles <- "CREATE TABLE IF NOT EXISTS Articles (
@@ -95,28 +102,48 @@ dbExecute(con, create_article_author)
 
 # Close the database connection
 dbDisconnect(con)
+#################################END############################################
 
 
-# Load required libraries
-library(xml2)
-library(xmlvalidator)
 
-# Replace these with the paths/URLs to your XML and DTD files
-xml_file_path <- "https://github.com/sahsahil1998/Mine-a-Database/blob/main/pubmed-tfm-xml/pubmedXML.xml"
-dtd_file_path <- "https://github.com/sahsahil1998/Mine-a-Database/blob/main/pubmed-tfm-xml/pubmedXML.dtd"
 
-# Read the XML file
-xml_data <- xml2::read_xml(xml_file_path)
+# Download XML and DTD from URL and then validate XML using DTD
+#################################START##########################################
+# Download the XML and DTD files from GitHub
+xml_file_url <- "https://raw.githubusercontent.com/sahsahil1998/Mine-a-Database/main/chunksOfChunks/xml_chunk_1.xml"
+dtd_file_url <- "https://raw.githubusercontent.com/sahsahil1998/Mine-a-Database/main/pubmed-tfm-xml/pubmedXML.dtd"
+xml_file_path <- tempfile()
+dtd_file_path <- tempfile()
+curl::curl_download(xml_file_url, xml_file_path)
+curl::curl_download(dtd_file_url, dtd_file_path)
 
-# Read the DTD file
-dtd <- system.file("extdata", dtd_file_path, package = "XML")
+# Read the XML file and replace the DTD reference with the local DTD file path
+xml_content <- readLines(xml_file_path)
+xml_content <- gsub("pubmedXML.dtd", dtd_file_path, xml_content, fixed = TRUE)
+writeLines(xml_content, xml_file_path)
 
-# Validate the XML file using the DTD
-validation_result <- XML::validXMLDoc(xml_data, dtd)
+# Read and validate the XML file
+xml_data <- XML::xmlParse(xml_file_path)
 
-# Check if the validation was successful
-if (validation_result) {
+# Check if the XML data is an object of class "XMLInternalDocument"
+if (inherits(xml_data, "XMLInternalDocument")) {
   cat("XML validation successful!\n")
 } else {
   cat("XML validation failed.\n")
 }
+#################################END############################################
+
+
+
+# LOAD XML into database
+#################################START##########################################
+# Connect to the SQLite database
+con <- dbConnect(RSQLite::SQLite(), "pubmed2.db")
+
+
+
+
+# Close the database connection
+dbDisconnect(con)
+#################################END############################################
+
