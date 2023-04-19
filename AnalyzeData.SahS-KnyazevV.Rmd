@@ -1,0 +1,90 @@
+---
+title: "Explore and Mine Data"
+author: "Sahil Sah, Veniamin Knyazev"
+output: html_notebook
+---
+
+
+# Introduction
+
+This report presents the results of the following analytical queries against our MySQL data warehouse:
+
+1. Top five journals with the most articles published in them for the time period.
+2. Number of articles per journal per year broken down by quarter.
+
+
+# Setup
+
+```{r setup, include=FALSE}
+library(RMySQL)
+library(DBI)
+library(ggplot2)
+# Establish a connection to the MySQL database
+db_user <- 'admin'
+db_password <- 'tik12tik'
+db_name <- 'pubmedDB'
+db_host <- 'practicum2.cxdn8klm55ui.us-east-1.rds.amazonaws.com'
+db_port <- 3306
+
+mysqlCon <-  dbConnect(MySQL(), user = db_user, password = db_password,
+                   dbname = db_name, host = db_host, port = db_port)
+```
+
+#  Analytical Query 1:  Top five journals with the most articles published in them for the time period. Think about how you would best present this information so it is easily usable by an analyst or manager.
+```{r}
+query1 <- "
+SELECT jd.title AS journal_title, SUM(jf.articles_count) AS total_articles
+FROM Journal_Facts jf
+JOIN Journal_Dim jd ON jf.journal_id = jd.journal_id
+GROUP BY jd.title
+ORDER BY total_articles DESC
+LIMIT 5
+"
+result1 <- dbGetQuery(mysqlCon, query1)
+result1
+
+```
+
+```{r}
+ggplot(data=result1, aes(x=reorder(journal_title, -total_articles), y=total_articles)) +
+  geom_bar(stat="identity", fill="steelblue") +
+  labs(title="Top 5 Journals by Total Articles", x="Journal", y="Total Articles") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+
+# Analytical Query 2: Number of articles per journal per year broken down by quarter. Again, think of a good way to show this. Is a table better than a visualization or is it better to use a visualization.
+```{r}
+query2 <- "
+SELECT jd.title AS journal_title, jf.year, jf.quarter, SUM(jf.articles_count) AS total_articles
+FROM Journal_Facts jf
+JOIN Journal_Dim jd ON jf.journal_id = jd.journal_id
+GROUP BY jd.title, jf.year, jf.quarter
+"
+result2 <- dbGetQuery(mysqlCon, query2)
+result2
+
+```
+
+```{r}
+ggplot(data=result2, aes(x=year, y=total_articles, fill=as.factor(quarter))) +
+  geom_bar(stat="identity", position="dodge") +
+  facet_wrap(~ journal_title, ncol = 1) +
+  labs(title="Number of Articles per Journal per Year by Quarter",
+       x="Year", y="Total Articles", fill="Quarter") +
+  theme_minimal() +
+  theme(legend.position="bottom")
+
+```
+
+# Conclusion
+
+In this report, we presented the results of two analytical queries on our MySQL data warehouse:
+
+1. We identified the top five journals with the most articles published in them for the time period. This information can help analysts and managers understand which journals are the most popular and influential in their field.
+2. We analyzed the number of articles per journal per year, broken down by quarter. This data provides insight into the publishing patterns of different journals, allowing analysts and managers to track trends and plan for future publication needs.
+
+By presenting the data in both tabular and visual formats, we have made it easy for users to quickly understand and interpret the results of our analysis.
+
