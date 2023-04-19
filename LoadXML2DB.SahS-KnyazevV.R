@@ -104,7 +104,6 @@ fetch_xml_data <- function(xml_url, dtd_url) {
   return(xml_obj)
 }
 
-}
 
 # Function to convert PubDate into a list with year, month, and day
 convert_pubdate <- function(pubdate_node) {
