@@ -1,7 +1,11 @@
 # ----------------------------------------------------------------------------
 # Author: Sahil Sah, Veniamin Knyazev
 # Course: CS5200 - Practicum 2
-# Description: 
+# Description: This script migrates data from an SQLite database (pubmed.db)
+#              to a MySQL database (pubmedDB) and creates a star schema. The
+#              schema consists of a Journal Dimension table (Journal_Dim) and
+#              a Journal Facts table (Journal_Facts). It then performs
+#              analytical queries on the data and prints the results.
 # ----------------------------------------------------------------------------
 
 
