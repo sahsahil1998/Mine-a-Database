@@ -92,17 +92,18 @@ fetch_xml_data <- function(xml_url, dtd_url) {
   xml_content <- read_xml(xml_url)
   
   # Fetch the DTD content
-  dtd_content <- read_lines(dtd_url)
+  dtd_content <- read_lines(dtd_url, skip_empty = TRUE)
   
   # Combine the DTD content with the XML content
   dtd_declaration <- paste0("<!DOCTYPE ", xml_name(xml_content), " [\n", paste(dtd_content, collapse = "\n"), "\n]>")
   combined_content <- paste0(dtd_declaration, "\n", as.character(xml_content))
   
   # Parse the combined content and validate
-  xml_obj <- read_xml(combined_content, options = "NOENT")
+  xml_obj <- XML::xmlParse(combined_content, asText = TRUE, options = c("NOENT", "DTDVALID"))
   
   return(xml_obj)
 }
+
 
 
 # Function to convert PubDate into a list with year, month, and day
