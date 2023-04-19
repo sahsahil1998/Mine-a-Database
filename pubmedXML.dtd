@@ -1,4 +1,3 @@
-<?xml encoding="utf-8"?>
 
 <!ELEMENT Publications (Article)+>
 <!ATTLIST Publications
