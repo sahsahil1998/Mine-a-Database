@@ -296,7 +296,7 @@ for (article in articles) {
   # Insert article into the database
   if (length(journal_id$JournalID) > 0) {
     article_data <- list(PMID = pmid, Title = article_title, JournalID = journal_id$JournalID, Volume = journal_issue$Volume, Issue = journal_issue$Issue, PubDate = pub_date)
-    print(paste("article_data:", toString(article_data)))
+    print(paste("article_data:", toString(article_data))) # DEBUG
     dbExecute(con, "INSERT INTO Articles (PMID, Title, JournalID, Volume, Issue, PubDate) VALUES (:PMID, :Title, :JournalID, :Volume, :Issue, :PubDate)", article_data)
   } else {
     print("Error: JournalID not found for the article")
@@ -317,10 +317,11 @@ for (article in articles) {
     if (nrow(author_id) == 0) {
       # Insert author into the database if not already present
       
+      # DEBUG
       print("Before inserting author")  # DEBUG
       dbExecute(con, "INSERT INTO Authors (LastName, ForeName, Initials, Suffix, CollectiveName, ValidYN) VALUES (:LastName, :ForeName, :Initials, :Suffix, :CollectiveName, :ValidYN)", author)
       print("After inserting author")  # DEBUG
-      #dbExecute(con, "INSERT INTO Authors (LastName, ForeName, Initials, Suffix, CollectiveName, ValidYN) VALUES (:LastName, :ForeName, :Initials, :Suffix, :CollectiveName, :ValidYN)", author)
+      # DEBUG
       
       author_id <- dbGetQuery(con, paste0("SELECT AuthorID FROM Authors WHERE LastName = '", author$LastName, "' AND ForeName = '", author$ForeName, "' AND Initials = '", author$Initials, "'"))
     }
@@ -329,11 +330,12 @@ for (article in articles) {
     
     # Insert the relationship between the article and the author
     article_id <- dbGetQuery(con, paste0("SELECT ArticleID FROM Articles WHERE PMID = '", pmid, "'"))
+    # DEBUG
     print(paste("Length of article_id$ArticleID:", length(article_id$ArticleID)))
     print(paste("Content of article_id$ArticleID:", toString(article_id$ArticleID)))
     print(paste("Length of author_id$AuthorID:", length(author_id$AuthorID)))
     print(paste("Content of author_id$AuthorID:", toString(author_id$AuthorID)))
-    
+    # DEBUG
     if (length(author_id$AuthorID) == 1) {
       print("Before inserting Article_Author")  # DEBUG
       dbExecute(con, "INSERT OR IGNORE INTO Article_Author (ArticleID, AuthorID) VALUES (:ArticleID, :AuthorID)", list(ArticleID = article_id$ArticleID, AuthorID = author_id$AuthorID))
@@ -356,20 +358,24 @@ for (article in articles) {
       # Insert affiliation into the database if not already present
       affiliation_id <- dbGetQuery(con, paste0("SELECT AffiliationID FROM Affiliations WHERE Affiliation = '", affiliation_text, "'"))
       if (nrow(affiliation_id) == 0) {
-        #dbExecute(con, "INSERT INTO Affiliations (Affiliation) VALUES (:Affiliation)", list(Affiliation = affiliation_text))
+        
+        # DEBUG
         print("Before inserting affiliation")  # DEBUG
         dbExecute(con, "INSERT INTO Affiliations (Affiliation) VALUES (:Affiliation)", list(Affiliation = affiliation_text))
         print("After inserting affiliation")  # DEBUG
+        # DEBUG
+        
         
         affiliation_id <- dbGetQuery(con, paste0("SELECT AffiliationID FROM Affiliations WHERE Affiliation = '", affiliation_text, "'"))
       }
       
       # Insert the relationship between the author and the affiliation
-      #dbExecute(con, "INSERT OR IGNORE INTO Author_Affiliation (AuthorID, AffiliationID) VALUES (:AuthorID, :AffiliationID)", list(AuthorID = author_id$AuthorID, AffiliationID = affiliation_id$AffiliationID))
       
+      # DEBUG
       print("Before inserting Author_Affiliation")  # DEBUG
       dbExecute(con, "INSERT OR IGNORE INTO Author_Affiliation (AuthorID, AffiliationID) VALUES (:AuthorID, :AffiliationID)", list(AuthorID = author_id$AuthorID, AffiliationID = affiliation_id$AffiliationID))
       print("After inserting Author_Affiliation")  # DEBUG
+      # DEBUG
       
     }
   }
