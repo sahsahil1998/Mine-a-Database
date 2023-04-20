@@ -218,11 +218,16 @@ extract_date <- function(date_node) {
   
   # Concatenate year, month, and day with hyphens to form date string
   date <- paste(year, month, day, sep = "-")
+  date <- gsub("--$", "", date) # Remove trailing double hyphens
+  date <- gsub("^-", "", date) # Remove leading hyphens
   
   return(date)
 }
 
 
+escape_quotes <- function(text) {
+  return(gsub("'", "''", text))
+}
 
 
 
@@ -254,12 +259,28 @@ for (article in articles) {
   journal_issue_node <- xml2::xml_find_first(article, ".//JournalIssue")
   journal_issue <- extract_journal_issue(journal_issue_node)
   
-  # Insert journal into the database if not already present
-  journal_id <- dbGetQuery(con, paste0("SELECT JournalID FROM Journals WHERE ISSN = '", journal$ISSN, "'"))
-  if (nrow(journal_id) == 0) {
-    dbExecute(con, "INSERT INTO Journals (ISSN, Title, ISOAbbreviation) VALUES (:ISSN, :Title, :ISOAbbreviation)", journal)
-    journal_id <- dbGetQuery(con, paste0("SELECT JournalID FROM Journals WHERE ISSN = '", journal$ISSN, "'"))
+  if (!is.na(journal$ISSN)) {
+    query <- sprintf("SELECT JournalID FROM Journals WHERE ISSN = '%s'", escape_quotes(journal$ISSN))
+    journal_id <- dbGetQuery(con, query)
+  } else {
+    query <- sprintf("SELECT JournalID FROM Journals WHERE Title = '%s' AND ISOAbbreviation = '%s' AND ISSN IS NULL", escape_quotes(journal$Title), escape_quotes(journal$ISOAbbreviation))
+    journal_id <- dbGetQuery(con, query)
   }
+  
+  if (nrow(journal_id) == 0) {
+    dbExecute(con, "INSERT INTO Journals (ISSN, Title, ISOAbbreviation) VALUES (:ISSN, :Title, :ISOAbbreviation)", params = journal)
+    if (!is.na(journal$ISSN)) {
+      query <- sprintf("SELECT JournalID FROM Journals WHERE ISSN = '%s'", escape_quotes(journal$ISSN))
+      journal_id <- dbGetQuery(con, query)
+    } else {
+      query <- sprintf("SELECT JournalID FROM Journals WHERE Title = '%s' AND ISOAbbreviation = '%s' AND ISSN IS NULL", escape_quotes(journal$Title), escape_quotes(journal$ISOAbbreviation))
+      journal_id <- dbGetQuery(con, query)
+    }
+  }
+  
+  
+  
+  
   
   # Extract article information
   article_title <- get_text(article, ".//ArticleTitle")

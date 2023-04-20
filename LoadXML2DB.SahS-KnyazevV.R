@@ -6,7 +6,7 @@
 
 
 # List of required packages
-packages <- c("XML", "httr", "RSQLite", "DBI", "xml2", "readr")
+packages <- c("XML", "httr", "RSQLite", "DBI", "xml2", "readr", "curl")
 
 # Install missing packages
 install_packages <- function(pkg) {
@@ -25,6 +25,7 @@ library(readr)
 library(httr)
 library(DBI)
 library(XML)
+library(curl)
 
 # Create a new SQLite connection
 con <- dbConnect(RSQLite::SQLite(), "pubmed.db")
@@ -98,11 +99,18 @@ fetch_xml_data <- function(xml_url, dtd_url) {
   dtd_declaration <- paste0("<!DOCTYPE ", xml_name(xml_content), " [\n", paste(dtd_content, collapse = "\n"), "\n]>")
   combined_content <- paste0(dtd_declaration, "\n", as.character(xml_content))
   
-  # Parse the combined content and validate
-  xml_obj <- XML::xmlParse(combined_content, asText = TRUE, options = c("NOENT", "DTDVALID"))
+  # Remove any extra whitespace or characters before the XML declaration
+  combined_content <- gsub("^\\s*", "", combined_content)
+  
+  # Parse the combined content
+  xml_obj <- XML::xmlParse(combined_content, asText = TRUE)
   
   return(xml_obj)
 }
+
+
+
+
 
 
 
@@ -117,8 +125,8 @@ convert_pubdate <- function(pubdate_node) {
 
 
 # Main script
-dtd_url <- "https://raw.githubusercontent.com/sahsahil1998/Mine-a-Database/main/pubmed.dtd"
-xml_url <- "https://raw.githubusercontent.com/sahsahil1998/Mine-a-Database/main/pubmed-tfm-xml.xml"
+dtd_url <- "https://raw.githubusercontent.com/sahsahil1998/Mine-a-Database/main/XML/pubmedXML.dtd"
+xml_url <- "https://raw.githubusercontent.com/sahsahil1998/Mine-a-Database/main/chunksOfChunks/xml_chunk_1.xml"
 
                     
 create_tables(con)
