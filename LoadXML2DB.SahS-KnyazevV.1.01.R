@@ -146,7 +146,7 @@ if (inherits(xml_data, "XMLInternalDocument")) {
 
 
 library(xml2)
-xml_file <- "C:/Users/vknya/OneDrive/Documents/School/Northeastern/CS 5200/Practicum 2/Mine-a-Database/chunks/xml_chunk_1.xml"
+xml_file <- "C:/Users/vknya/OneDrive/Documents/School/Northeastern/CS 5200/Practicum 2/Mine-a-Database/pubmed-tfm-xml/pubmedXML.xml"
 xml_data <- read_xml(xml_file)
 
 
@@ -315,14 +315,35 @@ for (article in articles) {
     # Insert author into the database if not already present
     author_id <- dbGetQuery(con, paste0("SELECT AuthorID FROM Authors WHERE LastName = '", author$LastName, "' AND ForeName = '", author$ForeName, "' AND Initials = '", author$Initials, "'"))
     if (nrow(author_id) == 0) {
+      # Insert author into the database if not already present
+      
+      print("Before inserting author")  # DEBUG
       dbExecute(con, "INSERT INTO Authors (LastName, ForeName, Initials, Suffix, CollectiveName, ValidYN) VALUES (:LastName, :ForeName, :Initials, :Suffix, :CollectiveName, :ValidYN)", author)
+      print("After inserting author")  # DEBUG
+      #dbExecute(con, "INSERT INTO Authors (LastName, ForeName, Initials, Suffix, CollectiveName, ValidYN) VALUES (:LastName, :ForeName, :Initials, :Suffix, :CollectiveName, :ValidYN)", author)
+      
       author_id <- dbGetQuery(con, paste0("SELECT AuthorID FROM Authors WHERE LastName = '", author$LastName, "' AND ForeName = '", author$ForeName, "' AND Initials = '", author$Initials, "'"))
     }
     
     # Insert the relationship between the article and the author
-    article_id <- dbGetQuery(con, paste0("SELECT ArticleID FROM Articles WHERE PMID = '", pmid, "'"))
-    dbExecute(con, "INSERT OR IGNORE INTO Article_Author (ArticleID, AuthorID) VALUES (:ArticleID, :AuthorID)", list(ArticleID = article_id$ArticleID, AuthorID = author_id$AuthorID))
     
+    # Insert the relationship between the article and the author
+    article_id <- dbGetQuery(con, paste0("SELECT ArticleID FROM Articles WHERE PMID = '", pmid, "'"))
+    print(paste("Length of article_id$ArticleID:", length(article_id$ArticleID)))
+    print(paste("Content of article_id$ArticleID:", toString(article_id$ArticleID)))
+    print(paste("Length of author_id$AuthorID:", length(author_id$AuthorID)))
+    print(paste("Content of author_id$AuthorID:", toString(author_id$AuthorID)))
+    
+    if (length(author_id$AuthorID) == 1) {
+      print("Before inserting Article_Author")  # DEBUG
+      dbExecute(con, "INSERT OR IGNORE INTO Article_Author (ArticleID, AuthorID) VALUES (:ArticleID, :AuthorID)", list(ArticleID = article_id$ArticleID, AuthorID = author_id$AuthorID))
+      print("After inserting Article_Author")  # DEBUG
+    } else {
+      print(paste("Error: author_id$AuthorID is empty for author", author$LastName))
+    }
+    
+
+  
     # Extract and process affiliations
     affiliation_nodes <- xml2::xml_find_all(author_node, ".//Affiliation")
     for (affiliation_node in affiliation_nodes) {
@@ -335,12 +356,21 @@ for (article in articles) {
       # Insert affiliation into the database if not already present
       affiliation_id <- dbGetQuery(con, paste0("SELECT AffiliationID FROM Affiliations WHERE Affiliation = '", affiliation_text, "'"))
       if (nrow(affiliation_id) == 0) {
+        #dbExecute(con, "INSERT INTO Affiliations (Affiliation) VALUES (:Affiliation)", list(Affiliation = affiliation_text))
+        print("Before inserting affiliation")  # DEBUG
         dbExecute(con, "INSERT INTO Affiliations (Affiliation) VALUES (:Affiliation)", list(Affiliation = affiliation_text))
+        print("After inserting affiliation")  # DEBUG
+        
         affiliation_id <- dbGetQuery(con, paste0("SELECT AffiliationID FROM Affiliations WHERE Affiliation = '", affiliation_text, "'"))
       }
       
       # Insert the relationship between the author and the affiliation
+      #dbExecute(con, "INSERT OR IGNORE INTO Author_Affiliation (AuthorID, AffiliationID) VALUES (:AuthorID, :AffiliationID)", list(AuthorID = author_id$AuthorID, AffiliationID = affiliation_id$AffiliationID))
+      
+      print("Before inserting Author_Affiliation")  # DEBUG
       dbExecute(con, "INSERT OR IGNORE INTO Author_Affiliation (AuthorID, AffiliationID) VALUES (:AuthorID, :AffiliationID)", list(AuthorID = author_id$AuthorID, AffiliationID = affiliation_id$AffiliationID))
+      print("After inserting Author_Affiliation")  # DEBUG
+      
     }
   }
 }
