@@ -20,23 +20,13 @@ library(RSQLite)
 # Step 2: Validate XML Externally
 #################################START##########################################
 
-# Define the URLs XML and DTD files
-xml_url <- "https://raw.githubusercontent.com/sahsahil1998/Mine-a-Database/main/pubmed-tfm-xml/pubmedXML.xml"
-dtd_url <- "https://raw.githubusercontent.com/sahsahil1998/Mine-a-Database/main/pubmed-tfm-xml/pubmedXML.dtd"
 
+library(xml2)
 
-# Read the XML content and DTD content from the URLs
-xml_content <- read_lines(xml_url)
-dtd_content <- read_lines(dtd_url)
+# Replace the URL with the actual URL of your XML file hosted on GitHub
+xml_url <- "https://raw.githubusercontent.com/sahsahil1998/Mine-a-Database/main/pubmed-tfm-xml/pubmedXML1.xml"
 
-# Combine the XML and DTD content
-xml_with_dtd <- c(paste("<!DOCTYPE root SYSTEM \"", dtd_url, "\">", sep = ""), xml_content)
-
-# Convert the combined content to a single string
-xml_string <- paste(xml_with_dtd, collapse = "\n")
-
-# Load the XML file with DTD validation
-xml_data <- read_xml(xml_string, options = "DTDVALID")
+xml_data <- read_xml(xml_url, options = "NOBLANKS")
 
 
 #################################END############################################
