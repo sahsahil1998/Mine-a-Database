@@ -57,14 +57,15 @@ parse_article <- function(article) {
              stringsAsFactors = FALSE)
 }
 
-# Function to parse an XML file into a data.frame
+# Define a function to parse an XML file into a data.frame
 parse_xml_file <- function(xml_file) {
   xml_data <- read_xml(xml_file)
   articles <- xml_find_all(xml_data, ".//Article")
-  do.call(rbind, lapply(articles, parse_article))
+  
+  result <- do.call(rbind, lapply(articles, parse_article))
+  
+  return(result)
 }
-
-
 
 # Function to write the parsed XML data to a CSV file
 write_article_csv <- function(output_file, xml_files) {
@@ -73,12 +74,28 @@ write_article_csv <- function(output_file, xml_files) {
     file.remove(output_file)
   }
   
+  # Create a progress bar for XML documents
+  total_xml_files <- length(xml_files)
+  pb_xml_files <- txtProgressBar(min = 0, max = total_xml_files, style = 3)
+  
   for (i in seq_along(xml_files)) {
+    start_time <- Sys.time()
     chunk <- parse_xml_file(xml_files[i])
+    end_time <- Sys.time()
+    
     write_csv(chunk, output_file, append = i > 1)
+    
+    # Update the progress bar for XML documents
+    setTxtProgressBar(pb_xml_files, i)
+    flush.console() # Force flush the buffer
+    
+    # Display the time taken for processing the current XML document
+    cat(sprintf("XML file %d processed in %d seconds\n", i, as.integer(end_time - start_time)))
   }
+  
+  # Close the progress bar for XML documents
+  close(pb_xml_files)
 }
-
 #################################END############################################
 
 
