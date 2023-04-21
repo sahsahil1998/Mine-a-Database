@@ -28,12 +28,18 @@ library(RSQLite)
 
 # Convert XML into CSV for easier processing
 #################################START##########################################
+
+# Source the csvconverter.r script
 source("csvconverter.r")
 
+# Define your folder path containing the XML files
+folder_path <- "C:/Users/vknya/OneDrive/Documents/School/Northeastern/CS 5200/Practicum 2/Mine-a-Database/chunks"
+
+# Get a list of all XML files in the folder
+xml_files <- list.files(folder_path, pattern = "\\.xml$", full.names = TRUE)
+
 # Write the parsed XML data to a CSV file
-write_article_csv("my_output_file.csv", my_xml_files)
-
-
+write_article_csv("conbined_articles.csv", xml_files)
 
 #################################END############################################
 

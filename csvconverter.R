@@ -1,27 +1,24 @@
 
 # UTILS 
 #################################START##########################################
-install.packages("xml2")
-install.packages("dplyr")
-install.packages("readr")
-install.packages("pbapply")
-install.packages("tidyr")
-install.packages("RSQLite")
 
+# Install and load required packages
+packages <- c("xml2", "dplyr", "readr")
+for (pkg in packages) {
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    install.packages(pkg)
+  }
+  library(pkg, character.only = TRUE)
+}
 
-library(tidyr)
-library(xml2)
-library(dplyr)
-library(readr)
-library(pbapply)
-library(RSQLite)
 #################################END############################################
 
 
 # Convert XML into CSV for easier processing
 #################################START##########################################
 
-# Define a function to parse a single XML file and return the result as a data.frame
+
+# Function to parse articles
 parse_article <- function(article) {
   pmid <- xml_attr(article, "PMID")
   pub_details <- xml_find_first(article, ".//PubDetails")
@@ -60,8 +57,16 @@ parse_article <- function(article) {
              stringsAsFactors = FALSE)
 }
 
+# Function to parse an XML file into a data.frame
+parse_xml_file <- function(xml_file) {
+  xml_data <- read_xml(xml_file)
+  articles <- xml_find_all(xml_data, ".//Article")
+  do.call(rbind, lapply(articles, parse_article))
+}
 
-# Define a function to write the parsed XML data to a CSV file
+
+
+# Function to write the parsed XML data to a CSV file
 write_article_csv <- function(output_file, xml_files) {
   # Remove the output file if it already exists
   if (file.exists(output_file)) {
@@ -74,15 +79,6 @@ write_article_csv <- function(output_file, xml_files) {
   }
 }
 
-# Generate the file paths for the XML chunks
-base_path <- "C:/Users/vknya/OneDrive/Documents/School/Northeastern/CS 5200/Practicum 2/Mine-a-Database/chunks/"
-xml_files <- paste0(base_path, "xml_chunk_", 1:30, ".xml")
-
-# Write to a single CSV file
-output_file <- "combined_articles.csv"
-
-# Write the parsed XML data to a CSV file
-write_article_csv(output_file, xml_files)
 #################################END############################################
 
 
