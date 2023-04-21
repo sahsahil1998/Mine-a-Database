@@ -29,26 +29,46 @@ xml_url <- "https://raw.githubusercontent.com/sahsahil1998/Mine-a-Database/main/
 xml_data <- read_xml(xml_url, options = "NOBLANKS")
 
 
+
+
+#################################END############################################
+
+
+# Step 3: Validate XML Externally
+#################################START##########################################
+
+
+library(xml2)
+
+# Replace the URL with the actual URL of your XML file hosted on GitHub
+xml_url <- "https://raw.githubusercontent.com/sahsahil1998/Mine-a-Database/main/pubmed-tfm-xml/pubmedXML1.xml"
+
+xml_data <- read_xml(xml_url, options = "NOBLANKS")
+
+
+
+
 #################################END############################################
 
 
 
-# STEP 3: CONVERT
+# STEP 4: CONVERT
 
-# Convert XML into CSV for easier processing
+# Convert XML chunks into CSV for easier processing
 #################################START##########################################
 
-# Source the csvconverter.r script
-source("csvconverter.r")
+source("C:/Users/vknya/OneDrive/Documents/School/Northeastern/CS 5200/Practicum 2/Mine-a-Database/Util/splitXMLscript.R")
 
-# Define your folder path containing the XML files
-folder_path <- "C:/Users/vknya/OneDrive/Documents/School/Northeastern/CS 5200/Practicum 2/Mine-a-Database/chunks"
 
-# Get a list of all XML files in the folder
-xml_files <- list.files(folder_path, pattern = "\\.xml$", full.names = TRUE)
 
-# Write the parsed XML data to a CSV file
-write_article_csv("combined_articles.csv", xml_files)
+xml_file <- "C:/Users/vknya/OneDrive/Documents/School/Northeastern/CS 5200/Practicum 2/Mine-a-Database/pubmed-tfm-xml/pubmedXML.xml"
+element_type <- "//Article"
+chunk_size <- 1000
+
+split_xml_file(xml_file, element_type, chunk_size)
+
+
+
 
 #################################END############################################
 
