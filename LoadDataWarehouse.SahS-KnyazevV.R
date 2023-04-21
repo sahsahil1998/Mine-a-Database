@@ -77,6 +77,15 @@ journal_facts_data <- dbGetQuery(sqliteCon, "
 # Populate the Journal Facts table
 dbWriteTable(mysqlCon, "Journal_Facts", journal_facts_data, append = TRUE, row.names = FALSE)
 
+# Check the data in the Journal_Dim table (top 10 rows)
+mysql_journal_dim_data <- dbGetQuery(mysqlCon, "SELECT * FROM Journal_Dim LIMIT 10")
+print(mysql_journal_dim_data)
+
+# Check the data in the Journal_Facts table (top 10 rows)
+mysql_journal_facts_data <- dbGetQuery(mysqlCon, "SELECT * FROM Journal_Facts LIMIT 10")
+print(mysql_journal_facts_data)
+
+
 ## Query 1: What the are number of articles published in every journal in 2012 and 2013?
 query1 <- "
 SELECT jd.title AS journal_title, SUM(jf.articles_count) AS total_articles
