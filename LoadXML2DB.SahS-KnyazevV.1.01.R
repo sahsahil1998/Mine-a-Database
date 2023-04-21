@@ -146,7 +146,7 @@ if (inherits(xml_data, "XMLInternalDocument")) {
 
 
 library(xml2)
-xml_file <- "C:/Users/vknya/OneDrive/Documents/School/Northeastern/CS 5200/Practicum 2/Mine-a-Database/pubmed-tfm-xml/pubmedXML.xml"
+xml_file <- "C:/Users/vknya/OneDrive/Documents/School/Northeastern/CS 5200/Practicum 2/Mine-a-Database/chunks/xml_chunk_1.xml"
 xml_data <- read_xml(xml_file)
 
 
@@ -169,7 +169,7 @@ extract_journal <- function(journal_node) {
     Title = get_text(journal_node, ".//Title"),
     ISOAbbreviation = get_text(journal_node, ".//ISOAbbreviation")
   )
-  print(paste("journal_data:", toString(journal)))
+  #print(paste("journal_data:", toString(journal)))
   
   return(journal)
 }
@@ -180,7 +180,7 @@ extract_journal_issue <- function(journal_issue_node) {
     Volume = get_text(journal_issue_node, ".//Volume"),
     Issue = get_text(journal_issue_node, ".//Issue")
   )
-  print(paste("journal_issue_data:", toString(journal_issue)))
+  #print(paste("journal_issue_data:", toString(journal_issue)))
   
   return(journal_issue)
 }
@@ -200,7 +200,7 @@ extract_author <- function(author_node) {
     CollectiveName = get_text(author_node, ".//CollectiveName"),
     ValidYN = xml2::xml_attr(author_node, "ValidYN")
   )
-  print(paste("author_data:", toString(author)))
+  #print(paste("author_data:", toString(author)))
   
   return(author)
 }
@@ -224,12 +224,9 @@ extract_date <- function(date_node) {
   return(date)
 }
 
-
 escape_quotes <- function(text) {
   return(gsub("'", "''", text))
 }
-
-
 
 # Function to help escape special chars that interfere with XML processing
 escape_xml_chars <- function(text) {
@@ -241,16 +238,39 @@ escape_xml_chars <- function(text) {
   return(text)
 }
 
-
 ## END of Helper functions
+# Batch size for sending queries to DB
+batch_size <- 1000
+
+# total num of articles in XML
+article_count <- 30969
+
+# Initialize lists for batch inserts
+journal_batch <- list()
+article_batch <- list()
+author_batch <- list()
+article_author_batch <- list()
+affiliation_batch <- list()
+author_affiliation_batch <- list()
+
+
 
 # Connect to the SQLite database
 con <- dbConnect(RSQLite::SQLite(), "pubmed2.db")
 
+
+
 # Iterate through top-level nodes
 articles <- xml2::xml_find_all(xml_data, "//Article")
 
+
+# init batch counter
+batch_counter <- 0
+
+
+
 for (article in articles) {
+  
   # Extract journal information
   journal_node <- xml2::xml_find_first(article, ".//Journal")
   journal <- extract_journal(journal_node)
@@ -259,6 +279,11 @@ for (article in articles) {
   journal_issue_node <- xml2::xml_find_first(article, ".//JournalIssue")
   journal_issue <- extract_journal_issue(journal_issue_node)
   
+  
+  # increment batch counter 
+  batch_counter <- batch_counter + 1
+  
+  # if journal SSN is not Null check DB if it exists
   if (!is.na(journal$ISSN)) {
     query <- sprintf("SELECT JournalID FROM Journals WHERE ISSN = '%s'", escape_quotes(journal$ISSN))
     journal_id <- dbGetQuery(con, query)
@@ -267,6 +292,7 @@ for (article in articles) {
     journal_id <- dbGetQuery(con, query)
   }
   
+  # check if journal id is in DB 
   if (nrow(journal_id) == 0) {
     dbExecute(con, "INSERT INTO Journals (ISSN, Title, ISOAbbreviation) VALUES (:ISSN, :Title, :ISOAbbreviation)", params = journal)
     if (!is.na(journal$ISSN)) {
@@ -278,25 +304,21 @@ for (article in articles) {
     }
   }
   
-  
-  
-  
-  
   # Extract article information
   article_title <- get_text(article, ".//ArticleTitle")
   pub_date <- extract_date(xml2::xml_find_first(article, ".//PubDate"))
   pmid <- xml2::xml_attr(article, "PMID")
   
   # DEBUG
-  print(paste("article_title:", article_title))
-  print(paste("pub_date:", pub_date))
-  print(paste("pmid:", pmid))
+  #print(paste("article_title:", article_title))
+  #print(paste("pub_date:", pub_date))
+  #print(paste("pmid:", pmid))
   # DEBUG
   
   # Insert article into the database
   if (length(journal_id$JournalID) > 0) {
     article_data <- list(PMID = pmid, Title = article_title, JournalID = journal_id$JournalID, Volume = journal_issue$Volume, Issue = journal_issue$Issue, PubDate = pub_date)
-    print(paste("article_data:", toString(article_data))) # DEBUG
+    #print(paste("article_data:", toString(article_data))) # DEBUG
     dbExecute(con, "INSERT INTO Articles (PMID, Title, JournalID, Volume, Issue, PubDate) VALUES (:PMID, :Title, :JournalID, :Volume, :Issue, :PubDate)", article_data)
   } else {
     print("Error: JournalID not found for the article")
@@ -309,50 +331,48 @@ for (article in articles) {
     author <- extract_author(author_node)
     
     # DEBUG
-    print(paste("author_node:", toString(author_node)))
+    #print(paste("author_node:", toString(author_node)))
     # DEBUG 
-    
-    # Insert author into the database if not already present
-    author_id <- dbGetQuery(con, paste0("SELECT AuthorID FROM Authors WHERE LastName = '", author$LastName, "' AND ForeName = '", author$ForeName, "' AND Initials = '", author$Initials, "'"))
-    if (nrow(author_id) == 0) {
+    if(batch_counter == batch_size){
       # Insert author into the database if not already present
-      
-      # DEBUG
-      print("Before inserting author")  # DEBUG
-      dbExecute(con, "INSERT INTO Authors (LastName, ForeName, Initials, Suffix, CollectiveName, ValidYN) VALUES (:LastName, :ForeName, :Initials, :Suffix, :CollectiveName, :ValidYN)", author)
-      print("After inserting author")  # DEBUG
-      # DEBUG
-      
       author_id <- dbGetQuery(con, paste0("SELECT AuthorID FROM Authors WHERE LastName = '", author$LastName, "' AND ForeName = '", author$ForeName, "' AND Initials = '", author$Initials, "'"))
-    }
+      if (nrow(author_id) == 0) {
+        # Insert author into the database if not already present
+        
+        # DEBUG
+        #print("Before inserting author")  # DEBUG
+        dbExecute(con, "INSERT INTO Authors (LastName, ForeName, Initials, Suffix, CollectiveName, ValidYN) VALUES (:LastName, :ForeName, :Initials, :Suffix, :CollectiveName, :ValidYN)", author)
+        #print("After inserting author")  # DEBUG
+        # DEBUG
+        
+        author_id <- dbGetQuery(con, paste0("SELECT AuthorID FROM Authors WHERE LastName = '", author$LastName, "' AND ForeName = '", author$ForeName, "' AND Initials = '", author$Initials, "'"))
+      }
+      
+      # Insert the relationship between the article and the author
+      article_id <- dbGetQuery(con, paste0("SELECT ArticleID FROM Articles WHERE PMID = '", pmid, "'"))
+      # DEBUG
+      #print(paste("Length of article_id$ArticleID:", length(article_id$ArticleID)))
+      #print(paste("Content of article_id$ArticleID:", toString(article_id$ArticleID)))
+      #print(paste("Length of author_id$AuthorID:", length(author_id$AuthorID)))
+      #print(paste("Content of author_id$AuthorID:", toString(author_id$AuthorID)))
+      # DEBUG
+      if (length(author_id$AuthorID) == 1) {
+        #print("Before inserting Article_Author")  # DEBUG
+        dbExecute(con, "INSERT OR IGNORE INTO Article_Author (ArticleID, AuthorID) VALUES (:ArticleID, :AuthorID)", list(ArticleID = article_id$ArticleID, AuthorID = author_id$AuthorID))
+        #print("After inserting Article_Author")  # DEBUG
+      } else {
+        print(paste("Error: author_id$AuthorID is empty for author", author$LastName))
+      }
+    }   
     
-    # Insert the relationship between the article and the author
     
-    # Insert the relationship between the article and the author
-    article_id <- dbGetQuery(con, paste0("SELECT ArticleID FROM Articles WHERE PMID = '", pmid, "'"))
-    # DEBUG
-    print(paste("Length of article_id$ArticleID:", length(article_id$ArticleID)))
-    print(paste("Content of article_id$ArticleID:", toString(article_id$ArticleID)))
-    print(paste("Length of author_id$AuthorID:", length(author_id$AuthorID)))
-    print(paste("Content of author_id$AuthorID:", toString(author_id$AuthorID)))
-    # DEBUG
-    if (length(author_id$AuthorID) == 1) {
-      print("Before inserting Article_Author")  # DEBUG
-      dbExecute(con, "INSERT OR IGNORE INTO Article_Author (ArticleID, AuthorID) VALUES (:ArticleID, :AuthorID)", list(ArticleID = article_id$ArticleID, AuthorID = author_id$AuthorID))
-      print("After inserting Article_Author")  # DEBUG
-    } else {
-      print(paste("Error: author_id$AuthorID is empty for author", author$LastName))
-    }
-    
-
-  
     # Extract and process affiliations
     affiliation_nodes <- xml2::xml_find_all(author_node, ".//Affiliation")
     for (affiliation_node in affiliation_nodes) {
       affiliation_text <- xml2::xml_text(affiliation_node)
       
       # DEBUG
-      print(paste("affiliation_text:", affiliation_text))
+      #print(paste("affiliation_text:", affiliation_text))
       # DEBUG
       
       # Insert affiliation into the database if not already present
@@ -360,9 +380,9 @@ for (article in articles) {
       if (nrow(affiliation_id) == 0) {
         
         # DEBUG
-        print("Before inserting affiliation")  # DEBUG
+        # print("Before inserting affiliation")  # DEBUG
         dbExecute(con, "INSERT INTO Affiliations (Affiliation) VALUES (:Affiliation)", list(Affiliation = affiliation_text))
-        print("After inserting affiliation")  # DEBUG
+        # print("After inserting affiliation")  # DEBUG
         # DEBUG
         
         
@@ -372,9 +392,9 @@ for (article in articles) {
       # Insert the relationship between the author and the affiliation
       
       # DEBUG
-      print("Before inserting Author_Affiliation")  # DEBUG
+      #print("Before inserting Author_Affiliation")  # DEBUG
       dbExecute(con, "INSERT OR IGNORE INTO Author_Affiliation (AuthorID, AffiliationID) VALUES (:AuthorID, :AffiliationID)", list(AuthorID = author_id$AuthorID, AffiliationID = affiliation_id$AffiliationID))
-      print("After inserting Author_Affiliation")  # DEBUG
+      #print("After inserting Author_Affiliation")  # DEBUG
       # DEBUG
       
     }
@@ -383,8 +403,3 @@ for (article in articles) {
 
 # Close the database connection
 dbDisconnect(con)
-
-
-  
-  
-

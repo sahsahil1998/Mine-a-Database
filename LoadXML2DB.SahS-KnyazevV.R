@@ -1,50 +1,108 @@
-# ----------------------------------------------------------------------------
-# Author: Sahil Sah, Veniamin Knyazev
-# Course: CS5200 - Practicum 2
-# Description: Script to fetch, parse, and store XML data into SQLite tables
-# ----------------------------------------------------------------------------
+
+# UTILS 
+#################################START##########################################
+install.packages("xml2")
+install.packages("dplyr")
+install.packages("readr")
+install.packages("pbapply")
+install.packages("tidyr")
+install.packages("RSQLite")
 
 
-# List of required packages
-packages <- c("XML", "httr", "RSQLite", "DBI", "xml2", "readr", "curl")
-
-# Install missing packages
-install_packages <- function(pkg) {
-  new_packages <- pkg[!(pkg %in% installed.packages()[, "Package"])]
-  if (length(new_packages)) {
-    install.packages(new_packages, dependencies = TRUE)
-  }
-}
-install_packages(packages)
-
-# Load the required packages
-lapply(packages, requireNamespace, quietly = TRUE)
-library(RSQLite)
+library(tidyr)
 library(xml2)
+library(dplyr)
 library(readr)
-library(httr)
-library(DBI)
-library(XML)
-library(curl)
+library(pbapply)
+library(RSQLite)
+#################################END############################################
 
-# Create a new SQLite connection
-con <- dbConnect(RSQLite::SQLite(), "pubmed.db")
 
-# Dropping tables if it exists
-dbExecute(con, "DROP TABLE IF EXISTS Journals")
-dbExecute(con, "DROP TABLE IF EXISTS Articles")
-dbExecute(con, "DROP TABLE IF EXISTS Authors")
-dbExecute(con, "DROP TABLE IF EXISTS Journal")
-dbExecute(con, "DROP TABLE IF EXISTS Article")
-dbExecute(con, "DROP TABLE IF EXISTS Article_author")
+# STEP 1: CONVERT
 
-create_tables <- function(con) {
+# Convert XML into CSV for easier processing
+#################################START##########################################
+
+# Define a function to parse a single XML file and return the result as a data.frame
+parse_article <- function(article) {
+  pmid <- xml_attr(article, "PMID")
+  pub_details <- xml_find_first(article, ".//PubDetails")
+  
+  journal <- xml_find_first(pub_details, ".//Journal")
+  issn <- xml_text(xml_find_first(journal, ".//ISSN"))
+  title <- xml_text(xml_find_first(journal, ".//Title"))
+  iso_abbreviation <- xml_text(xml_find_first(journal, ".//ISOAbbreviation"))
+  
+  article_title <- xml_text(xml_find_first(pub_details, ".//ArticleTitle"))
+  
+  author_list <- xml_find_first(pub_details, ".//AuthorList")
+  authors <- xml_find_all(author_list, ".//Author")
+  author_data <- lapply(authors, function(author) {
+    last_name <- xml_text(xml_find_first(author, ".//LastName"))
+    fore_name <- xml_text(xml_find_first(author, ".//ForeName"))
+    initials <- xml_text(xml_find_first(author, ".//Initials"))
+    paste(last_name, fore_name, initials, sep = ", ")
+  })
+  
+  pub_date <- xml_find_first(journal, ".//PubDate")
+  year <- xml_text(xml_find_first(pub_date, ".//Year"))
+  season <- xml_text(xml_find_first(pub_date, ".//Season"))
+  month <- xml_text(xml_find_first(pub_date, ".//Month"))
+  day <- xml_text(xml_find_first(pub_date, ".//Day"))
+  
+  data.frame(PMID = pmid,
+             ISSN = issn,
+             JournalTitle = title,
+             ISOAbbreviation = iso_abbreviation,
+             ArticleTitle = article_title,
+             Authors = paste(author_data, collapse = "; "),
+             Year = year,
+             Month = month,
+             Day = day,
+             stringsAsFactors = FALSE)
+}
+
+# Generate the file paths for the XML chunks
+base_path <- "C:/Users/vknya/OneDrive/Documents/School/Northeastern/CS 5200/Practicum 2/Mine-a-Database/chunks/"
+xml_files <- paste0(base_path, "xml_chunk_", 1:30, ".xml")
+
+# Write to a single CSV file
+output_file <- "combined_articles.csv"
+
+# Remove the output file if it already exists
+if (file.exists(output_file)) {
+  file.remove(output_file)
+}
+
+for (i in seq_along(xml_files)) {
+  chunk <- parse_xml_file(xml_files[i])
+  write_csv(chunk, output_file, append = i > 1)
+}
+
+#################################END############################################
+
+
+# STEP 2: CREATE TABLES IN DB
+
+# Connect to DB and create tables
+#################################START##########################################
+
+create_tables <- function() {
+  
+  # Create a new SQLite connection
+  con <- dbConnect(RSQLite::SQLite(), "pubmed.db")
+  
+  # Dropping tables if it exists
+  dbExecute(con, "DROP TABLE IF EXISTS Authors")
+  dbExecute(con, "DROP TABLE IF EXISTS Journals")
+  dbExecute(con, "DROP TABLE IF EXISTS Articles")
+  dbExecute(con, "DROP TABLE IF EXISTS Article_author")
+  
   # Create the Journals table
   dbExecute(con, "
   CREATE TABLE Journals (
     journal_id INTEGER PRIMARY KEY AUTOINCREMENT,
     ISSN TEXT NOT NULL,
-    issn_type TEXT,
     title TEXT,
     iso_abbreviation TEXT
   )")
@@ -52,18 +110,13 @@ create_tables <- function(con) {
   # Create the Articles table
   dbExecute(con, "
   CREATE TABLE Articles (
-    pmid INTEGER PRIMARY KEY,
+    PMID INTEGER PRIMARY KEY,
     journal_id INTEGER NOT NULL,
     article_title TEXT,
-    cited_medium TEXT,
-    journal_volume TEXT,
-    journal_issue TEXT,
     publication_year INTEGER,
     publication_month INTEGER,
     publication_day INTEGER,
-    publication_season TEXT,
-    medline_date TEXT,
-    FOREIGN KEY (journal_id) REFERENCES journal(journal_id)
+    FOREIGN KEY (journal_id) REFERENCES Journals(journal_id)
   )")
   
   # Create the Authors table
@@ -81,120 +134,98 @@ create_tables <- function(con) {
   # Author to Article Link
   dbExecute(con, "
   CREATE TABLE Article_author (
-    pmid INTEGER NOT NULL,
+    PMID INTEGER NOT NULL,
     author_id INTEGER NOT NULL,
-    FOREIGN KEY (pmid) REFERENCES Articles(pmid),
+    FOREIGN KEY (PMID) REFERENCES Articles(PMID),
     FOREIGN KEY (author_id) REFERENCES Authors(author_id)
   )")
+ 
+  # Close the database connection
+  dbDisconnect(con) 
+  
 }
 
-fetch_xml_data <- function(xml_url, dtd_url) {
-  # Fetch the XML content
-  xml_content <- read_xml(xml_url)
-  
-  # Fetch the DTD content
-  dtd_content <- read_lines(dtd_url, skip_empty = TRUE)
-  
-  # Combine the DTD content with the XML content
-  dtd_declaration <- paste0("<!DOCTYPE ", xml_name(xml_content), " [\n", paste(dtd_content, collapse = "\n"), "\n]>")
-  combined_content <- paste0(dtd_declaration, "\n", as.character(xml_content))
-  
-  # Remove any extra whitespace or characters before the XML declaration
-  combined_content <- gsub("^\\s*", "", combined_content)
-  
-  # Parse the combined content
-  xml_obj <- XML::xmlParse(combined_content, asText = TRUE)
-  
-  return(xml_obj)
-}
+create_tables()
+
+#################################END############################################
 
 
+# STEP 3: POPULATE DB
+
+# Import data from CSV into SQlite DB 
+#################################START##########################################
+
+# Load libraries
+library(readr)
+library(dplyr)
+library(RSQLite)
+library(tidyr)
+
+# Read the CSV file
+csv_data <- read_csv("combined_articles.csv")
+
+# Connect to the SQLite database
+con <- dbConnect(RSQLite::SQLite(), "pubmed.db")
+
+# Insert Journals data
+csv_data %>%
+  select(ISSN, JournalTitle, ISOAbbreviation) %>%
+  filter(!is.na(ISSN) & ISSN != "") %>%
+  distinct(ISSN, .keep_all = TRUE) %>%
+  rename(title = JournalTitle, iso_abbreviation = ISOAbbreviation) %>%
+  dbWriteTable(con, "Journals", ., append = TRUE, row.names = FALSE)
+
+# Map ISSN to journal_id
+journal_id_map <- dbGetQuery(con, "SELECT journal_id, ISSN FROM Journals")
+csv_data <- csv_data %>%
+  left_join(journal_id_map, by = "ISSN")
+
+# Separate Authors data from the CSV file
+authors_data <- csv_data %>%
+  mutate(pmid = row_number()) %>%
+  separate_rows(Authors, sep = "\\|") %>%
+  separate(Authors, c("last_name", "fore_name", "initials"), sep = ",", extra = "merge") %>%
+  mutate(last_name = trimws(last_name),
+         fore_name = trimws(fore_name),
+         initials = trimws(initials)) %>%
+  distinct(pmid, last_name, fore_name, initials)
+
+# Insert Authors data
+authors_data %>%
+  select(last_name, fore_name, initials) %>%
+  distinct() %>%
+  dbWriteTable(con, "Authors", ., append = TRUE, row.names = FALSE)
+
+# Map authors in csv_data to author_ids in the Authors table
+author_id_map <- dbGetQuery(con, "SELECT author_id, last_name, fore_name, initials FROM Authors")
+author_id_map <- authors_data %>%
+  left_join(author_id_map, by = c("last_name", "fore_name", "initials")) %>%
+  select(pmid, author_id)
+
+# Insert Articles data
+csv_data %>%
+  filter(!is.na(journal_id)) %>%
+  select(PMID, article_title = ArticleTitle, journal_id, Year, Month, Day) %>%
+  distinct() %>%
+  mutate(Year = as.integer(Year),
+         Month = as.integer(Month),
+         Day = as.integer(Day),
+         publication_year = replace_na(Year, NA_integer_),
+         publication_month = replace_na(Month, NA_integer_),
+         publication_day = replace_na(Day, NA_integer_)) %>%
+  select(PMID, article_title, journal_id, publication_year, publication_month, publication_day) %>%
+  dbWriteTable(con, "Articles", ., append = TRUE, row.names = FALSE)
 
 
+# Insert Article_author data
+author_id_map %>%
+  filter(!is.na(pmid) & !is.na(author_id)) %>%
+  distinct() %>%
+  dbWriteTable(con, "Article_author", ., append = TRUE, row.names = FALSE)
 
 
-
-# Function to convert PubDate into a list with year, month, and day
-convert_pubdate <- function(pubdate_node) {
-  year <- as.integer(xmlValue(pubdate_node[["Year"]]))
-  month <- xmlValue(pubdate_node[["Month"]])
-  day <- as.integer(xmlValue(pubdate_node[["Day"]]))
-  return(list(year = year, month = month, day = day))
-}
+# Close the database connection
+dbDisconnect(con)
 
 
-
-# Main script
-dtd_url <- "https://raw.githubusercontent.com/sahsahil1998/Mine-a-Database/main/XML/pubmedXML.dtd"
-xml_url <- "https://raw.githubusercontent.com/sahsahil1998/Mine-a-Database/main/chunksOfChunks/xml_chunk_1.xml"
-
-                    
-create_tables(con)
-xml_root <- fetch_xml_data(xml_url, dtd_url)
-
-# Get the count
-count <- xmlSize(xml_root)
-print(count)
-
-articles <- xml2::xml_find_all(xml_root, ".//Article")
-
-
-for (article in articles) {
-  pmid <- as.integer(xmlGetAttr(article, "PMID"))
-  
-  # Extract Journal information
-  journal_node <- getNodeSet(article, ".//Journal")
-  issn <- xmlValue(journal_node[[1]][["ISSN"]])
-  issn_type <- xmlGetAttr(journal_node[[1]][["ISSN"]], "IssnType")
-  title <- xmlValue(journal_node[[1]][["Title"]])
-  iso_abbreviation <- xmlValue(journal_node[[1]][["ISOAbbreviation"]])
-  
-  # Extract Article information
-  article_title <- xmlValue(getNodeSet(article, ".//ArticleTitle")[[1]])
-  cited_medium <- xmlGetAttr(getNodeSet(article, ".//JournalIssue")[[1]], "CitedMedium")
-  journal_volume <- xmlValue(getNodeSet(article, ".//JournalIssue/Volume")[[1]])
-  journal_issue <- xmlValue(getNodeSet(article, ".//JournalIssue/Issue")[[1]])
-  pubdate <- convert_pubdate(getNodeSet(article, ".//PubDate")[[1]])
-  
-  # Extract Authors information
-  author_nodes <- getNodeSet(article, ".//Author")
-  authors <- lapply(author_nodes, function(author_node) {
-    last_name <- xmlValue(author_node[["LastName"]])
-    fore_name <- xmlValue(author_node[["ForeName"]])
-    initials <- xmlValue(author_node[["Initials"]])
-    return(list(last_name = last_name, fore_name = fore_name, initials = initials))
-  })
-  
-  # Insert data into the respective tables
-  # Insert Journal data
-  dbExecute(con, "INSERT OR IGNORE INTO Journals (ISSN, issn_type, title, iso_abbreviation) VALUES (?, ?, ?, ?)", 
-            list(issn, issn_type, title, iso_abbreviation))
-  
-  # Get the journal_id
-  journal_id <- dbGetQuery(con, "SELECT journal_id FROM Journals WHERE ISSN = ?", list(issn))$journal_id
-  
-  # Insert Article data
-  dbExecute(con, "INSERT OR IGNORE INTO Articles (pmid, journal_id, article_title, cited_medium, journal_volume, journal_issue, 
-            publication_year, publication_month, publication_day) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", 
-            list(pmid, journal_id, article_title, cited_medium, journal_volume, journal_issue, pubdate$year, pubdate$month, pubdate$day))
-  
-  # Insert Authors and Article_author data
-  for (author in authors) {
-    # Insert Author data
-    dbExecute(con, "INSERT OR IGNORE INTO Authors (last_name, fore_name, initials) VALUES (?, ?, ?)", 
-              list(author$last_name, author$fore_name, author$initials))
-    
-    # Get the author_id
-    author_id <- dbGetQuery(con, "SELECT author_id FROM Authors WHERE last_name = ? AND fore_name = ? AND initials = ?", 
-                            list(author$last_name, author$fore_name, author$initials))$author_id
-    
-    # Insert Article_author data
-    dbExecute(con, "INSERT OR IGNORE INTO Article_author (pmid, author_id) VALUES (?, ?)", list(pmid, author_id))
-  }
-}
-
-parsed_data <- parse_xml_data(xml_root)
-process_data(con, parsed_data)
-
-
-
+#################################END############################################
