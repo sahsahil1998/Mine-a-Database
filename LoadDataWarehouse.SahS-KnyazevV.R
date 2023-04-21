@@ -8,12 +8,10 @@
 #              analytical queries on the data and prints the results.
 # ----------------------------------------------------------------------------
 
-
 #loading the libraries
 library(RMySQL)
 library(RSQLite)
 library(sqldf)
-
 
 #Settings for AWS instance
 #Instance identifier - Practicum2
@@ -25,7 +23,7 @@ db_host <- 'practicum2.cxdn8klm55ui.us-east-1.rds.amazonaws.com'
 db_port <- 3306
 #Establish connection
 mysqlCon <-  dbConnect(MySQL(), user = db_user, password = db_password,
-                   dbname = db_name, host = db_host, port = db_port)
+                       dbname = db_name, host = db_host, port = db_port)
 
 # Dropping database if exists
 dbExecute(mysqlCon,"DROP DATABASE IF EXISTS pubmedDB")
@@ -35,7 +33,6 @@ dbExecute(mysqlCon, "CREATE DATABASE pubmedDB")
 dbGetQuery(mysqlCon, "SHOW DATABASES")
 # Select the newly created database
 dbExecute(mysqlCon, "USE pubmedDB")
-
 
 # Create the Journal Dimension table
 dbExecute(mysqlCon, "CREATE TABLE Journal_Dim (
@@ -49,6 +46,7 @@ dbExecute(mysqlCon, "CREATE TABLE Journal_Facts (
   journal_id INTEGER,
   year INTEGER,
   quarter INTEGER,
+  month INTEGER,
   articles_count INTEGER,
   unique_authors_count INTEGER,
   FOREIGN KEY (journal_id) REFERENCES Journal_Dim(journal_id)
@@ -67,12 +65,13 @@ dbWriteTable(mysqlCon, "Journal_Dim", journal_data, append = TRUE, row.names = F
 journal_facts_data <- dbGetQuery(sqliteCon, "
   SELECT j.journal_id, strftime('%Y', a.publication_year) AS year, 
          (strftime('%m', a.publication_month) - 1) / 3 + 1 AS quarter, 
+         strftime('%m', a.publication_month) AS month,
          COUNT(DISTINCT a.pmid) AS articles_count,
          COUNT(DISTINCT aa.author_id) AS unique_authors_count
   FROM Articles a
   JOIN Journals j ON a.journal_id = j.journal_id
   JOIN Article_author aa ON a.pmid = aa.pmid
-  GROUP BY j.journal_id, year, quarter
+  GROUP BY j.journal_id, year, quarter, month
 ")
 
 # Populate the Journal Facts table
@@ -118,8 +117,7 @@ GROUP BY year
 result4 <- dbGetQuery(mysqlCon, query4)
 print(result4)
 
-
-
 # Close SQLite connection and MySQL connection
 dbDisconnect(sqliteCon)
 dbDisconnect(mysqlCon)
+             
