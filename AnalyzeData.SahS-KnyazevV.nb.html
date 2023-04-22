@@ -1757,86 +1757,72 @@ display: none;
 <div id="introduction" class="section level1">
 <h1>Introduction</h1>
 <p>This report presents the results of the following analytical queries
-against our MySQL data warehouse:</p>
+against our MySQL data warehouse, aiming to provide insights into the
+publishing patterns of various journals:</p>
 <ol style="list-style-type: decimal">
 <li>Top five journals with the most articles published in them for the
 time period.</li>
 <li>Number of articles per journal per year broken down by quarter.</li>
 </ol>
 </div>
-<div id="setup" class="section level1">
-<h1>Setup</h1>
+<div id="setup-for-mysql-instance" class="section level1">
+<h1>Setup for MySQL Instance</h1>
 <!-- rnb-text-end -->
 <!-- rnb-text-begin -->
-</div>
-<div id="analytical-query-1-top-five-journals-with-the-most-articles-published-in-them-for-the-time-period.-think-about-how-you-would-best-present-this-information-so-it-is-easily-usable-by-an-analyst-or-manager." class="section level1">
-<h1>Analytical Query 1: Top five journals with the most articles
-published in them for the time period. Think about how you would best
-present this information so it is easily usable by an analyst or
-manager.</h1>
+<div id="analytical-query-i-top-five-journals-with-the-most-articles-published-in-them-for-the-time-period." class="section level2">
+<h2>Analytical Query I: Top five journals with the most articles
+published in them for the time period.</h2>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxucXVlcnkxIDwtIFwiXG5TRUxFQ1QgamQudGl0bGUgQVMgam91cm5hbF90aXRsZSwgU1VNKGpmLmFydGljbGVzX2NvdW50KSBBUyB0b3RhbF9hcnRpY2xlc1xuRlJPTSBKb3VybmFsX0ZhY3RzIGpmXG5KT0lOIEpvdXJuYWxfRGltIGpkIE9OIGpmLmpvdXJuYWxfaWQgPSBqZC5qb3VybmFsX2lkXG5HUk9VUCBCWSBqZC50aXRsZVxuT1JERVIgQlkgdG90YWxfYXJ0aWNsZXMgREVTQ1xuTElNSVQgNVxuXCJcbnJlc3VsdDEgPC0gZGJHZXRRdWVyeShteXNxbENvbiwgcXVlcnkxKVxucmVzdWx0MVxuXG5gYGAifQ== -->
-<pre class="r"><code>query1 &lt;- &quot;
-SELECT jd.title AS journal_title, SUM(jf.articles_count) AS total_articles
-FROM Journal_Facts jf
-JOIN Journal_Dim jd ON jf.journal_id = jd.journal_id
-GROUP BY jd.title
-ORDER BY total_articles DESC
-LIMIT 5
-&quot;
-result1 &lt;- dbGetQuery(mysqlCon, query1)
-result1
-</code></pre>
-<!-- rnb-source-end -->
-<!-- rnb-chunk-end -->
-<!-- rnb-text-begin -->
-<!-- rnb-text-end -->
-<!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuZ2dwbG90KGRhdGE9cmVzdWx0MSwgYWVzKHg9cmVvcmRlcihqb3VybmFsX3RpdGxlLCAtdG90YWxfYXJ0aWNsZXMpLCB5PXRvdGFsX2FydGljbGVzKSkgK1xuICBnZW9tX2JhcihzdGF0PVwiaWRlbnRpdHlcIiwgZmlsbD1cInN0ZWVsYmx1ZVwiKSArXG4gIGxhYnModGl0bGU9XCJUb3AgNSBKb3VybmFscyBieSBUb3RhbCBBcnRpY2xlc1wiLCB4PVwiSm91cm5hbFwiLCB5PVwiVG90YWwgQXJ0aWNsZXNcIikgK1xuICB0aGVtZV9taW5pbWFsKCkgK1xuICB0aGVtZShheGlzLnRleHQueCA9IGVsZW1lbnRfdGV4dChhbmdsZSA9IDQ1LCBoanVzdCA9IDEpKVxuXG5gYGAifQ== -->
-<pre class="r"><code>ggplot(data=result1, aes(x=reorder(journal_title, -total_articles), y=total_articles)) +
-  geom_bar(stat=&quot;identity&quot;, fill=&quot;steelblue&quot;) +
-  labs(title=&quot;Top 5 Journals by Total Articles&quot;, x=&quot;Journal&quot;, y=&quot;Total Articles&quot;) +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-</code></pre>
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuIyBTdG9yZSB0aGUgcmVzdWx0IHRvIGEgZGF0YWZyYW1lXG50b3BfNV9qb3VybmFscyA8LSBkYkdldFF1ZXJ5KG15c3FsQ29uLCBcbiAgIFwiU0VMRUNUIGpkLnRpdGxlIEFTIGpvdXJuYWxfdGl0bGUsIFNVTShqZi5hcnRpY2xlc19jb3VudCkgQVMgc3VtT2ZBcnRpY2xlc1xuICAgIEZST00gSm91cm5hbF9GYWN0cyBqZiBKT0lOIEpvdXJuYWxfRGltIGpkIE9OIGpmLmpvdXJuYWxfaWQgPSBqZC5qb3VybmFsX2lkXG4gICAgR1JPVVAgQlkgamQudGl0bGVcbiAgICBPUkRFUiBCWSBzdW1PZkFydGljbGVzIERFU0NcbiAgICBMSU1JVCA1XCIpXG50b3BfNV9qb3VybmFsc1xuYGBgIn0= -->
+<pre class="r"><code># Store the result to a dataframe
+top_5_journals &lt;- dbGetQuery(mysqlCon, 
+   &quot;SELECT jd.title AS journal_title, SUM(jf.articles_count) AS sumOfArticles
+    FROM Journal_Facts jf JOIN Journal_Dim jd ON jf.journal_id = jd.journal_id
+    GROUP BY jd.title
+    ORDER BY sumOfArticles DESC
+    LIMIT 5&quot;)
+top_5_journals</code></pre>
 <!-- rnb-source-end -->
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
 </div>
-<div id="analytical-query-2-number-of-articles-per-journal-per-year-broken-down-by-quarter.-again-think-of-a-good-way-to-show-this.-is-a-table-better-than-a-visualization-or-is-it-better-to-use-a-visualization." class="section level1">
-<h1>Analytical Query 2: Number of articles per journal per year broken
+<div id="analytical-query-ii-number-of-articles-per-journal-per-year-broken-down-by-quarter.-again-think-of-a-good-way-to-show-this.-is-a-table-better-than-a-visualization-or-is-it-better-to-use-a-visualization." class="section level2">
+<h2>Analytical Query II: Number of articles per journal per year broken
 down by quarter. Again, think of a good way to show this. Is a table
-better than a visualization or is it better to use a visualization.</h1>
+better than a visualization or is it better to use a visualization.</h2>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxucXVlcnkyIDwtIFwiXG5TRUxFQ1QgamQudGl0bGUgQVMgam91cm5hbF90aXRsZSwgamYueWVhciwgamYucXVhcnRlciwgU1VNKGpmLmFydGljbGVzX2NvdW50KSBBUyB0b3RhbF9hcnRpY2xlc1xuRlJPTSBKb3VybmFsX0ZhY3RzIGpmXG5KT0lOIEpvdXJuYWxfRGltIGpkIE9OIGpmLmpvdXJuYWxfaWQgPSBqZC5qb3VybmFsX2lkXG5HUk9VUCBCWSBqZC50aXRsZSwgamYueWVhciwgamYucXVhcnRlclxuXCJcbnJlc3VsdDIgPC0gZGJHZXRRdWVyeShteXNxbENvbiwgcXVlcnkyKVxucmVzdWx0MlxuXG5gYGAifQ== -->
-<pre class="r"><code>query2 &lt;- &quot;
-SELECT jd.title AS journal_title, jf.year, jf.quarter, SUM(jf.articles_count) AS total_articles
-FROM Journal_Facts jf
-JOIN Journal_Dim jd ON jf.journal_id = jd.journal_id
-GROUP BY jd.title, jf.year, jf.quarter
-&quot;
-result2 &lt;- dbGetQuery(mysqlCon, query2)
-result2
-</code></pre>
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuIyBTdG9yZSB0aGUgcmVzdWx0IHRvIGEgZGF0YWZyYW1lXG5qb3VybmFsX3Blcl95ZWFyIDwtIGRiR2V0UXVlcnkobXlzcWxDb24sIFxuICAgXCJTRUxFQ1QgamQudGl0bGUgQVMgam91cm5hbF90aXRsZSwgamYueWVhciwgamYucXVhcnRlciwgU1VNKGpmLmFydGljbGVzX2NvdW50KSBBUyBzdW1QZXJRdWFydGVyXG4gICAgRlJPTSBKb3VybmFsX0ZhY3RzIGpmIEpPSU4gSm91cm5hbF9EaW0gamQgT04gamYuam91cm5hbF9pZCA9IGpkLmpvdXJuYWxfaWRcbiAgICBHUk9VUCBCWSBqZC50aXRsZSwgamYueWVhciwgamYucXVhcnRlclwiKVxuam91cm5hbF9wZXJfeWVhclxuYGBgIn0= -->
+<pre class="r"><code># Store the result to a dataframe
+journal_per_year &lt;- dbGetQuery(mysqlCon, 
+   &quot;SELECT jd.title AS journal_title, jf.year, jf.quarter, SUM(jf.articles_count) AS sumPerQuarter
+    FROM Journal_Facts jf JOIN Journal_Dim jd ON jf.journal_id = jd.journal_id
+    GROUP BY jd.title, jf.year, jf.quarter&quot;)
+journal_per_year</code></pre>
 <!-- rnb-source-end -->
 <!-- rnb-chunk-end -->
-<!-- rnb-text-begin -->
-<!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuZ2dwbG90KGRhdGE9cmVzdWx0MiwgYWVzKHg9eWVhciwgeT10b3RhbF9hcnRpY2xlcywgZmlsbD1hcy5mYWN0b3IocXVhcnRlcikpKSArXG4gIGdlb21fYmFyKHN0YXQ9XCJpZGVudGl0eVwiLCBwb3NpdGlvbj1cImRvZGdlXCIpICtcbiAgZmFjZXRfd3JhcCh+IGpvdXJuYWxfdGl0bGUsIG5jb2wgPSAxKSArXG4gIGxhYnModGl0bGU9XCJOdW1iZXIgb2YgQXJ0aWNsZXMgcGVyIEpvdXJuYWwgcGVyIFllYXIgYnkgUXVhcnRlclwiLFxuICAgICAgIHg9XCJZZWFyXCIsIHk9XCJUb3RhbCBBcnRpY2xlc1wiLCBmaWxsPVwiUXVhcnRlclwiKSArXG4gIHRoZW1lX21pbmltYWwoKSArXG4gIHRoZW1lKGxlZ2VuZC5wb3NpdGlvbj1cImJvdHRvbVwiKVxuXG5gYGAifQ== -->
-<pre class="r"><code>ggplot(data=result2, aes(x=year, y=total_articles, fill=as.factor(quarter))) +
-  geom_bar(stat=&quot;identity&quot;, position=&quot;dodge&quot;) +
-  facet_wrap(~ journal_title, ncol = 1) +
-  labs(title=&quot;Number of Articles per Journal per Year by Quarter&quot;,
-       x=&quot;Year&quot;, y=&quot;Total Articles&quot;, fill=&quot;Quarter&quot;) +
-  theme_minimal() +
-  theme(legend.position=&quot;bottom&quot;)
-</code></pre>
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuIyBTdG9yZSB0aGUgcmVzdWx0IHRvIGEgZGF0YWZyYW1lXG50b3BfNV9qb3VybmFscyA8LSBkYkdldFF1ZXJ5KG15c3FsQ29uLCBcbiAgIFwiU0VMRUNUIGpkLnRpdGxlIEFTIGpvdXJuYWxfdGl0bGUsIFNVTShqZi5hcnRpY2xlc19jb3VudCkgQVMgc3VtT2ZBcnRpY2xlc1xuICAgIEZST00gSm91cm5hbF9GYWN0cyBqZiBKT0lOIEpvdXJuYWxfRGltIGpkIE9OIGpmLmpvdXJuYWxfaWQgPSBqZC5qb3VybmFsX2lkXG4gICAgR1JPVVAgQlkgamQudGl0bGVcbiAgICBPUkRFUiBCWSBzdW1PZkFydGljbGVzIERFU0NcbiAgICBMSU1JVCA1XCIpXG50b3BfNV9qb3VybmFsc1xuYGBgIn0= -->
+<pre class="r"><code># Store the result to a dataframe
+top_5_journals &lt;- dbGetQuery(mysqlCon, 
+   &quot;SELECT jd.title AS journal_title, SUM(jf.articles_count) AS sumOfArticles
+    FROM Journal_Facts jf JOIN Journal_Dim jd ON jf.journal_id = jd.journal_id
+    GROUP BY jd.title
+    ORDER BY sumOfArticles DESC
+    LIMIT 5&quot;)
+top_5_journals</code></pre>
 <!-- rnb-source-end -->
+<!-- rnb-frame-begin eyJtZXRhZGF0YSI6eyJjbGFzc2VzIjpbImRhdGEuZnJhbWUiXSwibnJvdyI6MSwibmNvbCI6Miwic3VtbWFyeSI6eyJEZXNjcmlwdGlvbiI6WyJkZiBbMSDDlyAyXSJdfX0sInJkZiI6Ikg0c0lBQUFBQUFBQUJsMVF3VW9ETVJDZHByc3VEYlFJK2dHZXZIVXZJbmhVRWErQ0tQUzJ4RFJ0STlsa1NWTHIxMWNuYTdKMkV3aDU4ekp2NXMyOFBxMXU2SW9Dd0JRS1FtQmFJb1R5L2UxNWVRZklZRENCQW1iaC9jYWtDd1NCUEQvNXVIeVVodTlFS3psVFY2MVlTeTYxUUg0UmN1NnZJWjVSc1ZLelZyaFlpRVJ5L21uMlZqUFZlT21WU0tUYnR5K2JCK3NsVjBFeEtqT3o1bENuVXZQK283L2pYbHd4NXpMVGRNMDhxemNXdFJnZE0wbGxPaStOUmhFSkUxZVplR0l6WXVGTjE5dzIwWC9vUmYvTkRCZ3lmR0o0d09UUENmbUpIYXJZNFV6b2JWaHJIRW14RDZGaVVJZ3ZsbkIxWUZaTHZVMitjRC85ZXVyT1N1M1Q3TWk2MmhzL3lDZzNLakg5TnVENEN6UnhvTVVhQWdBQSJ9 -->
+<div data-pagedtable="false">
+<script data-pagedtable-source type="application/json">
+{"columns":[{"label":["journal_title"],"name":[1],"type":["chr"],"align":["left"]},{"label":["sumOfArticles"],"name":[2],"type":["dbl"],"align":["right"]}],"data":[{"1":"Biochemical medicine","2":"11"}],"options":{"columns":{"min":{},"max":[10],"total":[2]},"rows":{"min":[10],"max":[10],"total":[1]},"pages":{}}}
+  </script>
+</div>
+<!-- rnb-frame-end -->
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
+</div>
 </div>
 <div id="conclusion" class="section level1">
 <h1>Conclusion</h1>
@@ -1858,7 +1844,7 @@ of our analysis.</p>
 <!-- rnb-text-end -->
 </div>
 
-<div id="rmd-source-code">LS0tDQp0aXRsZTogIkV4cGxvcmUgYW5kIE1pbmUgRGF0YSINCmF1dGhvcjogIlNhaGlsIFNhaCwgVmVuaWFtaW4gS255YXpldiINCm91dHB1dDogaHRtbF9ub3RlYm9vaw0KLS0tDQoNCg0KIyBJbnRyb2R1Y3Rpb24NCg0KVGhpcyByZXBvcnQgcHJlc2VudHMgdGhlIHJlc3VsdHMgb2YgdGhlIGZvbGxvd2luZyBhbmFseXRpY2FsIHF1ZXJpZXMgYWdhaW5zdCBvdXIgTXlTUUwgZGF0YSB3YXJlaG91c2U6DQoNCjEuIFRvcCBmaXZlIGpvdXJuYWxzIHdpdGggdGhlIG1vc3QgYXJ0aWNsZXMgcHVibGlzaGVkIGluIHRoZW0gZm9yIHRoZSB0aW1lIHBlcmlvZC4NCjIuIE51bWJlciBvZiBhcnRpY2xlcyBwZXIgam91cm5hbCBwZXIgeWVhciBicm9rZW4gZG93biBieSBxdWFydGVyLg0KDQoNCiMgU2V0dXANCg0KYGBge3Igc2V0dXAsIGluY2x1ZGU9RkFMU0V9DQpsaWJyYXJ5KFJNeVNRTCkNCmxpYnJhcnkoREJJKQ0KbGlicmFyeShnZ3Bsb3QyKQ0KIyBFc3RhYmxpc2ggYSBjb25uZWN0aW9uIHRvIHRoZSBNeVNRTCBkYXRhYmFzZQ0KZGJfdXNlciA8LSAnYWRtaW4nDQpkYl9wYXNzd29yZCA8LSAndGlrMTJ0aWsnDQpkYl9uYW1lIDwtICdwdWJtZWREQicNCmRiX2hvc3QgPC0gJ3ByYWN0aWN1bTIuY3hkbjhrbG01NXVpLnVzLWVhc3QtMS5yZHMuYW1hem9uYXdzLmNvbScNCmRiX3BvcnQgPC0gMzMwNg0KDQpteXNxbENvbiA8LSAgZGJDb25uZWN0KE15U1FMKCksIHVzZXIgPSBkYl91c2VyLCBwYXNzd29yZCA9IGRiX3Bhc3N3b3JkLA0KICAgICAgICAgICAgICAgICAgIGRibmFtZSA9IGRiX25hbWUsIGhvc3QgPSBkYl9ob3N0LCBwb3J0ID0gZGJfcG9ydCkNCmBgYA0KDQojICBBbmFseXRpY2FsIFF1ZXJ5IDE6ICBUb3AgZml2ZSBqb3VybmFscyB3aXRoIHRoZSBtb3N0IGFydGljbGVzIHB1Ymxpc2hlZCBpbiB0aGVtIGZvciB0aGUgdGltZSBwZXJpb2QuIFRoaW5rIGFib3V0IGhvdyB5b3Ugd291bGQgYmVzdCBwcmVzZW50IHRoaXMgaW5mb3JtYXRpb24gc28gaXQgaXMgZWFzaWx5IHVzYWJsZSBieSBhbiBhbmFseXN0IG9yIG1hbmFnZXIuDQpgYGB7cn0NCnF1ZXJ5MSA8LSAiDQpTRUxFQ1QgamQudGl0bGUgQVMgam91cm5hbF90aXRsZSwgU1VNKGpmLmFydGljbGVzX2NvdW50KSBBUyB0b3RhbF9hcnRpY2xlcw0KRlJPTSBKb3VybmFsX0ZhY3RzIGpmDQpKT0lOIEpvdXJuYWxfRGltIGpkIE9OIGpmLmpvdXJuYWxfaWQgPSBqZC5qb3VybmFsX2lkDQpHUk9VUCBCWSBqZC50aXRsZQ0KT1JERVIgQlkgdG90YWxfYXJ0aWNsZXMgREVTQw0KTElNSVQgNQ0KIg0KcmVzdWx0MSA8LSBkYkdldFF1ZXJ5KG15c3FsQ29uLCBxdWVyeTEpDQpyZXN1bHQxDQoNCmBgYA0KDQpgYGB7cn0NCmdncGxvdChkYXRhPXJlc3VsdDEsIGFlcyh4PXJlb3JkZXIoam91cm5hbF90aXRsZSwgLXRvdGFsX2FydGljbGVzKSwgeT10b3RhbF9hcnRpY2xlcykpICsNCiAgZ2VvbV9iYXIoc3RhdD0iaWRlbnRpdHkiLCBmaWxsPSJzdGVlbGJsdWUiKSArDQogIGxhYnModGl0bGU9IlRvcCA1IEpvdXJuYWxzIGJ5IFRvdGFsIEFydGljbGVzIiwgeD0iSm91cm5hbCIsIHk9IlRvdGFsIEFydGljbGVzIikgKw0KICB0aGVtZV9taW5pbWFsKCkgKw0KICB0aGVtZShheGlzLnRleHQueCA9IGVsZW1lbnRfdGV4dChhbmdsZSA9IDQ1LCBoanVzdCA9IDEpKQ0KDQpgYGANCg0KDQojIEFuYWx5dGljYWwgUXVlcnkgMjogTnVtYmVyIG9mIGFydGljbGVzIHBlciBqb3VybmFsIHBlciB5ZWFyIGJyb2tlbiBkb3duIGJ5IHF1YXJ0ZXIuIEFnYWluLCB0aGluayBvZiBhIGdvb2Qgd2F5IHRvIHNob3cgdGhpcy4gSXMgYSB0YWJsZSBiZXR0ZXIgdGhhbiBhIHZpc3VhbGl6YXRpb24gb3IgaXMgaXQgYmV0dGVyIHRvIHVzZSBhIHZpc3VhbGl6YXRpb24uDQpgYGB7cn0NCnF1ZXJ5MiA8LSAiDQpTRUxFQ1QgamQudGl0bGUgQVMgam91cm5hbF90aXRsZSwgamYueWVhciwgamYucXVhcnRlciwgU1VNKGpmLmFydGljbGVzX2NvdW50KSBBUyB0b3RhbF9hcnRpY2xlcw0KRlJPTSBKb3VybmFsX0ZhY3RzIGpmDQpKT0lOIEpvdXJuYWxfRGltIGpkIE9OIGpmLmpvdXJuYWxfaWQgPSBqZC5qb3VybmFsX2lkDQpHUk9VUCBCWSBqZC50aXRsZSwgamYueWVhciwgamYucXVhcnRlcg0KIg0KcmVzdWx0MiA8LSBkYkdldFF1ZXJ5KG15c3FsQ29uLCBxdWVyeTIpDQpyZXN1bHQyDQoNCmBgYA0KDQpgYGB7cn0NCmdncGxvdChkYXRhPXJlc3VsdDIsIGFlcyh4PXllYXIsIHk9dG90YWxfYXJ0aWNsZXMsIGZpbGw9YXMuZmFjdG9yKHF1YXJ0ZXIpKSkgKw0KICBnZW9tX2JhcihzdGF0PSJpZGVudGl0eSIsIHBvc2l0aW9uPSJkb2RnZSIpICsNCiAgZmFjZXRfd3JhcCh+IGpvdXJuYWxfdGl0bGUsIG5jb2wgPSAxKSArDQogIGxhYnModGl0bGU9Ik51bWJlciBvZiBBcnRpY2xlcyBwZXIgSm91cm5hbCBwZXIgWWVhciBieSBRdWFydGVyIiwNCiAgICAgICB4PSJZZWFyIiwgeT0iVG90YWwgQXJ0aWNsZXMiLCBmaWxsPSJRdWFydGVyIikgKw0KICB0aGVtZV9taW5pbWFsKCkgKw0KICB0aGVtZShsZWdlbmQucG9zaXRpb249ImJvdHRvbSIpDQoNCmBgYA0KDQojIENvbmNsdXNpb24NCg0KSW4gdGhpcyByZXBvcnQsIHdlIHByZXNlbnRlZCB0aGUgcmVzdWx0cyBvZiB0d28gYW5hbHl0aWNhbCBxdWVyaWVzIG9uIG91ciBNeVNRTCBkYXRhIHdhcmVob3VzZToNCg0KMS4gV2UgaWRlbnRpZmllZCB0aGUgdG9wIGZpdmUgam91cm5hbHMgd2l0aCB0aGUgbW9zdCBhcnRpY2xlcyBwdWJsaXNoZWQgaW4gdGhlbSBmb3IgdGhlIHRpbWUgcGVyaW9kLiBUaGlzIGluZm9ybWF0aW9uIGNhbiBoZWxwIGFuYWx5c3RzIGFuZCBtYW5hZ2VycyB1bmRlcnN0YW5kIHdoaWNoIGpvdXJuYWxzIGFyZSB0aGUgbW9zdCBwb3B1bGFyIGFuZCBpbmZsdWVudGlhbCBpbiB0aGVpciBmaWVsZC4NCjIuIFdlIGFuYWx5emVkIHRoZSBudW1iZXIgb2YgYXJ0aWNsZXMgcGVyIGpvdXJuYWwgcGVyIHllYXIsIGJyb2tlbiBkb3duIGJ5IHF1YXJ0ZXIuIFRoaXMgZGF0YSBwcm92aWRlcyBpbnNpZ2h0IGludG8gdGhlIHB1Ymxpc2hpbmcgcGF0dGVybnMgb2YgZGlmZmVyZW50IGpvdXJuYWxzLCBhbGxvd2luZyBhbmFseXN0cyBhbmQgbWFuYWdlcnMgdG8gdHJhY2sgdHJlbmRzIGFuZCBwbGFuIGZvciBmdXR1cmUgcHVibGljYXRpb24gbmVlZHMuDQoNCkJ5IHByZXNlbnRpbmcgdGhlIGRhdGEgaW4gYm90aCB0YWJ1bGFyIGFuZCB2aXN1YWwgZm9ybWF0cywgd2UgaGF2ZSBtYWRlIGl0IGVhc3kgZm9yIHVzZXJzIHRvIHF1aWNrbHkgdW5kZXJzdGFuZCBhbmQgaW50ZXJwcmV0IHRoZSByZXN1bHRzIG9mIG91ciBhbmFseXNpcy4NCg0K</div>
+<div id="rmd-source-code">LS0tDQp0aXRsZTogIkV4cGxvcmUgYW5kIE1pbmUgRGF0YSINCmF1dGhvcjogIlNhaGlsIFNhaCwgVmVuaWFtaW4gS255YXpldiINCm91dHB1dDogaHRtbF9ub3RlYm9vaw0KLS0tDQoNCg0KIyBJbnRyb2R1Y3Rpb24NCg0KVGhpcyByZXBvcnQgcHJlc2VudHMgdGhlIHJlc3VsdHMgb2YgdGhlIGZvbGxvd2luZyBhbmFseXRpY2FsIHF1ZXJpZXMgYWdhaW5zdCBvdXIgTXlTUUwgZGF0YSB3YXJlaG91c2UsIGFpbWluZyB0byBwcm92aWRlIGluc2lnaHRzIGludG8gdGhlIHB1Ymxpc2hpbmcgcGF0dGVybnMgb2YgdmFyaW91cyBqb3VybmFsczoNCg0KMS4gVG9wIGZpdmUgam91cm5hbHMgd2l0aCB0aGUgbW9zdCBhcnRpY2xlcyBwdWJsaXNoZWQgaW4gdGhlbSBmb3IgdGhlIHRpbWUgcGVyaW9kLg0KMi4gTnVtYmVyIG9mIGFydGljbGVzIHBlciBqb3VybmFsIHBlciB5ZWFyIGJyb2tlbiBkb3duIGJ5IHF1YXJ0ZXIuDQoNCg0KIyBTZXR1cCBmb3IgTXlTUUwgSW5zdGFuY2UNCg0KYGBge3Igc2V0dXAsIGluY2x1ZGU9RkFMU0V9DQpsaWJyYXJ5KFJNeVNRTCkNCmxpYnJhcnkoREJJKQ0KbGlicmFyeShnZ3Bsb3QyKQ0KIyBFc3RhYmxpc2ggYSBjb25uZWN0aW9uIHRvIHRoZSBNeVNRTCBkYXRhYmFzZQ0KZGJfdXNlciA8LSAnYWRtaW4nDQpkYl9wYXNzd29yZCA8LSAndGlrMTJ0aWsnDQpkYl9uYW1lIDwtICdwdWJtZWREQicNCmRiX2hvc3QgPC0gJ3ByYWN0aWN1bTIuY3hkbjhrbG01NXVpLnVzLWVhc3QtMS5yZHMuYW1hem9uYXdzLmNvbScNCmRiX3BvcnQgPC0gMzMwNg0KDQpteXNxbENvbiA8LSAgZGJDb25uZWN0KE15U1FMKCksIHVzZXIgPSBkYl91c2VyLCBwYXNzd29yZCA9IGRiX3Bhc3N3b3JkLA0KICAgICAgICAgICAgICAgICAgIGRibmFtZSA9IGRiX25hbWUsIGhvc3QgPSBkYl9ob3N0LCBwb3J0ID0gZGJfcG9ydCkNCmBgYA0KDQojIyBBbmFseXRpY2FsIFF1ZXJ5IEk6IFRvcCBmaXZlIGpvdXJuYWxzIHdpdGggdGhlIG1vc3QgYXJ0aWNsZXMgcHVibGlzaGVkIGluIHRoZW0gZm9yIHRoZSB0aW1lIHBlcmlvZC4NCg0KYGBge3IsIHRvcF81X2pvdXJuYWxzLCBldmFsID0gVCwgd2FybmluZyA9IEZ9DQojIFN0b3JlIHRoZSByZXN1bHQgdG8gYSBkYXRhZnJhbWUNCnRvcF81X2pvdXJuYWxzIDwtIGRiR2V0UXVlcnkobXlzcWxDb24sIA0KICAgIlNFTEVDVCBqZC50aXRsZSBBUyBqb3VybmFsX3RpdGxlLCBTVU0oamYuYXJ0aWNsZXNfY291bnQpIEFTIHN1bU9mQXJ0aWNsZXMNCiAgICBGUk9NIEpvdXJuYWxfRmFjdHMgamYgSk9JTiBKb3VybmFsX0RpbSBqZCBPTiBqZi5qb3VybmFsX2lkID0gamQuam91cm5hbF9pZA0KICAgIEdST1VQIEJZIGpkLnRpdGxlDQogICAgT1JERVIgQlkgc3VtT2ZBcnRpY2xlcyBERVNDDQogICAgTElNSVQgNSIpDQp0b3BfNV9qb3VybmFscw0KYGBgDQoNCg0KDQoNCiMjIEFuYWx5dGljYWwgUXVlcnkgSUk6IE51bWJlciBvZiBhcnRpY2xlcyBwZXIgam91cm5hbCBwZXIgeWVhciBicm9rZW4gZG93biBieSBxdWFydGVyLiBBZ2FpbiwgdGhpbmsgb2YgYSBnb29kIHdheSB0byBzaG93IHRoaXMuIElzIGEgdGFibGUgYmV0dGVyIHRoYW4gYSB2aXN1YWxpemF0aW9uIG9yIGlzIGl0IGJldHRlciB0byB1c2UgYSB2aXN1YWxpemF0aW9uLg0KYGBge3IsIGpvdXJuYWxfcGVyX3llYXIsIGV2YWwgPSBULCB3YXJuaW5nID0gRn0NCiMgU3RvcmUgdGhlIHJlc3VsdCB0byBhIGRhdGFmcmFtZQ0Kam91cm5hbF9wZXJfeWVhciA8LSBkYkdldFF1ZXJ5KG15c3FsQ29uLCANCiAgICJTRUxFQ1QgamQudGl0bGUgQVMgam91cm5hbF90aXRsZSwgamYueWVhciwgamYucXVhcnRlciwgU1VNKGpmLmFydGljbGVzX2NvdW50KSBBUyBzdW1QZXJRdWFydGVyDQogICAgRlJPTSBKb3VybmFsX0ZhY3RzIGpmIEpPSU4gSm91cm5hbF9EaW0gamQgT04gamYuam91cm5hbF9pZCA9IGpkLmpvdXJuYWxfaWQNCiAgICBHUk9VUCBCWSBqZC50aXRsZSwgamYueWVhciwgamYucXVhcnRlciIpDQpqb3VybmFsX3Blcl95ZWFyDQpgYGANCmBgYHtyfQ0KZ2dwbG90KGRhdGEgPSBqb3VybmFsX3Blcl95ZWFyLCBhZXMoeCA9IHllYXIsIHkgPSBzdW1QZXJRdWFydGVyLCBmaWxsID0gZmFjdG9yKHF1YXJ0ZXIpKSkgKw0KICBnZW9tX2JhcihzdGF0ID0gImlkZW50aXR5IiwgcG9zaXRpb24gPSAiZG9kZ2UiKSArDQogIGZhY2V0X3dyYXAofiBqb3VybmFsX3RpdGxlKSArDQogIGxhYnModGl0bGUgPSAiTnVtYmVyIG9mIEFydGljbGVzIHBlciBKb3VybmFsIHBlciBZZWFyIGJ5IFF1YXJ0ZXIiLA0KICAgICAgIHggPSAiWWVhciIsDQogICAgICAgeSA9ICJOdW1iZXIgb2YgQXJ0aWNsZXMiLA0KICAgICAgIGZpbGwgPSAiUXVhcnRlciIpICsNCiAgdGhlbWVfbWluaW1hbCgpDQoNCmBgYA0KDQoNCiMgQ29uY2x1c2lvbg0KDQpJbiB0aGlzIHJlcG9ydCwgd2UgcHJlc2VudGVkIHRoZSByZXN1bHRzIG9mIHR3byBhbmFseXRpY2FsIHF1ZXJpZXMgb24gb3VyIE15U1FMIGRhdGEgd2FyZWhvdXNlOg0KDQoxLiBXZSBpZGVudGlmaWVkIHRoZSB0b3AgZml2ZSBqb3VybmFscyB3aXRoIHRoZSBtb3N0IGFydGljbGVzIHB1Ymxpc2hlZCBpbiB0aGVtIGZvciB0aGUgdGltZSBwZXJpb2QuIFRoaXMgaW5mb3JtYXRpb24gY2FuIGhlbHAgYW5hbHlzdHMgYW5kIG1hbmFnZXJzIHVuZGVyc3RhbmQgd2hpY2ggam91cm5hbHMgYXJlIHRoZSBtb3N0IHBvcHVsYXIgYW5kIGluZmx1ZW50aWFsIGluIHRoZWlyIGZpZWxkLg0KMi4gV2UgYW5hbHl6ZWQgdGhlIG51bWJlciBvZiBhcnRpY2xlcyBwZXIgam91cm5hbCBwZXIgeWVhciwgYnJva2VuIGRvd24gYnkgcXVhcnRlci4gVGhpcyBkYXRhIHByb3ZpZGVzIGluc2lnaHQgaW50byB0aGUgcHVibGlzaGluZyBwYXR0ZXJucyBvZiBkaWZmZXJlbnQgam91cm5hbHMsIGFsbG93aW5nIGFuYWx5c3RzIGFuZCBtYW5hZ2VycyB0byB0cmFjayB0cmVuZHMgYW5kIHBsYW4gZm9yIGZ1dHVyZSBwdWJsaWNhdGlvbiBuZWVkcy4NCg0KQnkgcHJlc2VudGluZyB0aGUgZGF0YSBpbiBib3RoIHRhYnVsYXIgYW5kIHZpc3VhbCBmb3JtYXRzLCB3ZSBoYXZlIG1hZGUgaXQgZWFzeSBmb3IgdXNlcnMgdG8gcXVpY2tseSB1bmRlcnN0YW5kIGFuZCBpbnRlcnByZXQgdGhlIHJlc3VsdHMgb2Ygb3VyIGFuYWx5c2lzLg0KDQo=</div>
 
 
 

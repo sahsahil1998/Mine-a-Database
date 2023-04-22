@@ -7,13 +7,13 @@ output: html_notebook
 
 # Introduction
 
-This report presents the results of the following analytical queries against our MySQL data warehouse:
+This report presents the results of the following analytical queries against our MySQL data warehouse, aiming to provide insights into the publishing patterns of various journals:
 
 1. Top five journals with the most articles published in them for the time period.
 2. Number of articles per journal per year broken down by quarter.
 
 
-# Setup
+# Setup for MySQL Instance
 
 ```{r setup, include=FALSE}
 library(RMySQL)
@@ -30,54 +30,43 @@ mysqlCon <-  dbConnect(MySQL(), user = db_user, password = db_password,
                    dbname = db_name, host = db_host, port = db_port)
 ```
 
-#  Analytical Query 1:  Top five journals with the most articles published in them for the time period. Think about how you would best present this information so it is easily usable by an analyst or manager.
-```{r}
-query1 <- "
-SELECT jd.title AS journal_title, SUM(jf.articles_count) AS total_articles
-FROM Journal_Facts jf
-JOIN Journal_Dim jd ON jf.journal_id = jd.journal_id
-GROUP BY jd.title
-ORDER BY total_articles DESC
-LIMIT 5
-"
-result1 <- dbGetQuery(mysqlCon, query1)
-result1
+## Analytical Query I: Top five journals with the most articles published in them for the time period.
 
-```
-
-```{r}
-ggplot(data=result1, aes(x=reorder(journal_title, -total_articles), y=total_articles)) +
-  geom_bar(stat="identity", fill="steelblue") +
-  labs(title="Top 5 Journals by Total Articles", x="Journal", y="Total Articles") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
+```{r, top_5_journals, eval = T, warning = F}
+# Store the result to a dataframe
+top_5_journals <- dbGetQuery(mysqlCon, 
+   "SELECT jd.title AS journal_title, SUM(jf.articles_count) AS sumOfArticles
+    FROM Journal_Facts jf JOIN Journal_Dim jd ON jf.journal_id = jd.journal_id
+    GROUP BY jd.title
+    ORDER BY sumOfArticles DESC
+    LIMIT 5")
+top_5_journals
 ```
 
 
-# Analytical Query 2: Number of articles per journal per year broken down by quarter. Again, think of a good way to show this. Is a table better than a visualization or is it better to use a visualization.
+
+
+## Analytical Query II: Number of articles per journal per year broken down by quarter. Again, think of a good way to show this. Is a table better than a visualization or is it better to use a visualization.
+```{r, journal_per_year, eval = T, warning = F}
+# Store the result to a dataframe
+journal_per_year <- dbGetQuery(mysqlCon, 
+   "SELECT jd.title AS journal_title, jf.year, jf.quarter, SUM(jf.articles_count) AS sumPerQuarter
+    FROM Journal_Facts jf JOIN Journal_Dim jd ON jf.journal_id = jd.journal_id
+    GROUP BY jd.title, jf.year, jf.quarter")
+journal_per_year
+```
 ```{r}
-query2 <- "
-SELECT jd.title AS journal_title, jf.year, jf.quarter, SUM(jf.articles_count) AS total_articles
-FROM Journal_Facts jf
-JOIN Journal_Dim jd ON jf.journal_id = jd.journal_id
-GROUP BY jd.title, jf.year, jf.quarter
-"
-result2 <- dbGetQuery(mysqlCon, query2)
-result2
+ggplot(data = journal_per_year, aes(x = year, y = sumPerQuarter, fill = factor(quarter))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~ journal_title) +
+  labs(title = "Number of Articles per Journal per Year by Quarter",
+       x = "Year",
+       y = "Number of Articles",
+       fill = "Quarter") +
+  theme_minimal()
 
 ```
 
-```{r}
-ggplot(data=result2, aes(x=year, y=total_articles, fill=as.factor(quarter))) +
-  geom_bar(stat="identity", position="dodge") +
-  facet_wrap(~ journal_title, ncol = 1) +
-  labs(title="Number of Articles per Journal per Year by Quarter",
-       x="Year", y="Total Articles", fill="Quarter") +
-  theme_minimal() +
-  theme(legend.position="bottom")
-
-```
 
 # Conclusion
 
