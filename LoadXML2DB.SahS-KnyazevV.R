@@ -20,7 +20,7 @@ library(RSQLite)
 # Step 2: Validate XML Externally
 #################################START##########################################
 
-
+library(XML)
 library(xml2)
 
 # Replace the URL with the actual URL of your XML file hosted on GitHub
@@ -34,40 +34,60 @@ xml_data <- read_xml(xml_url, options = "NOBLANKS")
 #################################END############################################
 
 
-# Step 3: Validate XML Externally
+# Step 3: Convert large XML into XML chunks
 #################################START##########################################
 
-
-library(xml2)
-
-# Replace the URL with the actual URL of your XML file hosted on GitHub
-xml_url <- "https://raw.githubusercontent.com/sahsahil1998/Mine-a-Database/main/pubmed-tfm-xml/pubmedXML1.xml"
-
-xml_data <- read_xml(xml_url, options = "NOBLANKS")
-
-
-
-
-#################################END############################################
-
-
-
-# STEP 4: CONVERT
-
-# Convert XML chunks into CSV for easier processing
-#################################START##########################################
 
 source("C:/Users/vknya/OneDrive/Documents/School/Northeastern/CS 5200/Practicum 2/Mine-a-Database/Util/splitXMLscript.R")
 
+setwd("C:/Users/vknya/OneDrive/Documents/School/Northeastern/CS 5200/Practicum 2/Mine-a-Database/pubmed-tfm-xml")
 
+base_dir <- "C:/Users/vknya/OneDrive/Documents/School/Northeastern/CS 5200/Practicum 2/Mine-a-Database"
+xml_file <- "C:/Users/vknya/OneDrive/Documents/School/Northeastern/CS 5200/Practicum 2/Mine-a-Database/pubmed-tfm-xml/pubmedXML.xml"
+split_xml_file(base_dir, xml_file, "//Article", 1000)
+
+
+
+library(XML)
 
 xml_file <- "C:/Users/vknya/OneDrive/Documents/School/Northeastern/CS 5200/Practicum 2/Mine-a-Database/pubmed-tfm-xml/pubmedXML.xml"
-element_type <- "//Article"
-chunk_size <- 1000
-
-split_xml_file(xml_file, element_type, chunk_size)
+doc <- xmlParse(xml_file)
+print(xmlRoot(doc))
 
 
+library(XML)
+
+xml_file <- "C:/Users/vknya/OneDrive/Documents/School/Northeastern/CS 5200/Practicum 2/Mine-a-Database/pubmed-tfm-xml/pubmedXML.xml"
+doc <- xmlParse(xml_file)
+nodes <- getNodeSet(doc, "//Article")
+cat("Number of matched nodes:", length(nodes), "\n")
+
+
+
+
+
+#################################END############################################
+
+
+
+# STEP 4: CONVERT XML chunks into one CSV file
+#################################START##########################################
+
+
+# set wd
+setwd("C:/Users/vknya/OneDrive/Documents/School/Northeastern/CS 5200/Practicum 2/Mine-a-Database/pubmed-tfm-xml")
+
+# Source the csvconverter.r script
+source("csvconverter.r")
+
+# Define your folder path containing the XML files
+folder_path <- "C:/Users/vknya/OneDrive/Documents/School/Northeastern/CS 5200/Practicum 2/Mine-a-Database/pubmed-tfm-xml/"
+
+# Get a list of all XML files in the folder
+xml_files <- list.files(folder_path, pattern = "\\.xml$", full.names = TRUE)
+
+# Write the parsed XML data to a CSV file
+write_article_csv("combined_articles.csv", xml_files)
 
 
 #################################END############################################
