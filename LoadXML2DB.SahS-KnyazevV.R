@@ -20,14 +20,44 @@ library(RSQLite)
 # Step 2: Validate XML Externally
 #################################START##########################################
 
-library(XML)
+# Load the required packages
 library(xml2)
+library(R.utils)
+library(httr)
 
-# Replace the URL with the actual URL of your XML file hosted on GitHub
-xml_url <- "https://raw.githubusercontent.com/sahsahil1998/Mine-a-Database/main/pubmed-tfm-xml/pubmedXML1.xml"
+# Define the URLs for your DTD and XML files
+dtd_url <- "https://raw.githubusercontent.com/sahsahil1998/Mine-a-Database/main/pubmed-tfm-xml/pubmedXML.dtd"
+xml_url <- "https://raw.githubusercontent.com/sahsahil1998/Mine-a-Database/main/pubmed-tfm-xml/pubmedXML.xml"
 
-xml_data <- read_xml(xml_url, options = "NOBLANKS")
+# Download the DTD and XML files
+dtd_response <- GET(dtd_url)
+xml_response <- GET(xml_url)
 
+# Check for download errors
+stop_for_status(dtd_response)
+stop_for_status(xml_response)
+
+# Read the downloaded DTD and XML content
+dtd <- content(dtd_response, "text")
+xml <- read_xml(content(xml_response, "text"))
+
+# Create a temporary DTD file
+tmp_dtd_file <- tempfile(fileext = ".dtd")
+write_lines(dtd, tmp_dtd_file)
+
+# Validate the XML against the DTD
+validation_result <- tryCatch({
+  xml_validate(xml, dtd = tmp_dtd_file)
+  "XML file is valid."
+}, error = function(e) {
+  sprintf("Error validating XML file: %s", e$message)
+})
+
+# Print the validation result
+cat(validation_result)
+
+# Clean up the temporary DTD file
+unlink(tmp_dtd_file)
 
 
 
@@ -44,26 +74,8 @@ setwd("C:/Users/vknya/OneDrive/Documents/School/Northeastern/CS 5200/Practicum 2
 
 base_dir <- "C:/Users/vknya/OneDrive/Documents/School/Northeastern/CS 5200/Practicum 2/Mine-a-Database"
 xml_file <- "C:/Users/vknya/OneDrive/Documents/School/Northeastern/CS 5200/Practicum 2/Mine-a-Database/pubmed-tfm-xml/pubmedXML.xml"
+
 split_xml_file(base_dir, xml_file, "//Article", 1000)
-
-
-
-library(XML)
-
-xml_file <- "C:/Users/vknya/OneDrive/Documents/School/Northeastern/CS 5200/Practicum 2/Mine-a-Database/pubmed-tfm-xml/pubmedXML.xml"
-doc <- xmlParse(xml_file)
-print(xmlRoot(doc))
-
-
-library(XML)
-
-xml_file <- "C:/Users/vknya/OneDrive/Documents/School/Northeastern/CS 5200/Practicum 2/Mine-a-Database/pubmed-tfm-xml/pubmedXML.xml"
-doc <- xmlParse(xml_file)
-nodes <- getNodeSet(doc, "//Article")
-cat("Number of matched nodes:", length(nodes), "\n")
-
-
-
 
 
 #################################END############################################
@@ -75,13 +87,13 @@ cat("Number of matched nodes:", length(nodes), "\n")
 
 
 # set wd
-setwd("C:/Users/vknya/OneDrive/Documents/School/Northeastern/CS 5200/Practicum 2/Mine-a-Database/pubmed-tfm-xml")
+setwd("C:/Users/vknya/OneDrive/Documents/School/Northeastern/CS 5200/Practicum 2/Mine-a-Database")
 
 # Source the csvconverter.r script
 source("csvconverter.r")
 
-# Define your folder path containing the XML files
-folder_path <- "C:/Users/vknya/OneDrive/Documents/School/Northeastern/CS 5200/Practicum 2/Mine-a-Database/pubmed-tfm-xml/"
+# set path for chunks
+folder_path <- "C:/Users/vknya/OneDrive/Documents/School/Northeastern/CS 5200/Practicum 2/Mine-a-Database/Chunks/"
 
 # Get a list of all XML files in the folder
 xml_files <- list.files(folder_path, pattern = "\\.xml$", full.names = TRUE)
