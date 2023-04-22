@@ -22,8 +22,8 @@ db_name <- 'pubmedDB'
 db_host <- 'practicum2.cxdn8klm55ui.us-east-1.rds.amazonaws.com'
 db_port <- 3306
 #Establish connection
-mysqlCon <-  dbConnect(MySQL(), user = db_user, password = db_password,
-                       dbname = db_name, host = db_host, port = db_port)
+mysqlCon <- dbConnect(MySQL(), user = db_user, password = db_password,
+                      dbname = db_name, host = db_host, port = db_port)
 
 # Dropping database if exists
 dbExecute(mysqlCon,"DROP DATABASE IF EXISTS pubmedDB")
@@ -38,21 +38,20 @@ dbExecute(mysqlCon, "USE pubmedDB")
 dbExecute(mysqlCon, "CREATE TABLE Journal_Dim (
   journal_id INTEGER PRIMARY KEY,
   title VARCHAR(255) NOT NULL
-)")
+) ENGINE=InnoDB")
 
 # Create the Fact table for Journal facts
 dbExecute(mysqlCon, "CREATE TABLE Journal_Facts (
   journal_fact_id INTEGER PRIMARY KEY,
   journal_id INTEGER,
-  year INTEGER,
+  publication_year INTEGER,
   quarter INTEGER,
   month INTEGER,
   day INTEGER,
   articles_count INTEGER,
   unique_authors_count INTEGER,
   FOREIGN KEY (journal_id) REFERENCES Journal_Dim(journal_id)
-)")
-
+) ENGINE=InnoDB")
 
 # SQLite connection
 sqliteCon <- dbConnect(SQLite(), "pubmed.db")
@@ -65,7 +64,7 @@ dbWriteTable(mysqlCon, "Journal_Dim", journal_data, append = TRUE, row.names = F
 
 # Extract data from the SQLite database for the Journal Facts table
 journal_facts_data <- dbGetQuery(sqliteCon, "
-SELECT A.journal_id, A.publication_year as year, quarter, A.publication_month as month, A.publication_day as day,
+SELECT A.journal_id, A.publication_year, quarter, A.publication_month as month, A.publication_day as day,
        COUNT(DISTINCT A.pmid) AS articles_count, 
        COUNT(DISTINCT aa.author_id) AS unique_authors_count
 FROM (SELECT j.journal_id, a.publication_year,
@@ -83,8 +82,6 @@ JOIN Article_author aa ON A.pmid = aa.pmid
 GROUP BY A.journal_id, A.publication_year, A.quarter, A.publication_month, A.publication_day
 ")
 
-
-
 # Populate the Journal Facts table
 dbWriteTable(mysqlCon, "Journal_Facts", journal_facts_data, append = TRUE, row.names = FALSE)
 
@@ -93,43 +90,42 @@ print(factTab)
 factDim <- dbGetQuery(mysqlCon, "SELECT * FROM Journal_Dim LIMIT 20")
 print(factDim)
 
-
 # Query 1: What are the number of articles published in every journal in 2012 and 2013?
 query1 <- "
-SELECT jd.title AS journal_title, jf.year, SUM(jf.articles_count) AS total_articles
+SELECT jd.title AS journal_title, jf.publication_year, SUM(jf.articles_count) AS total_articles
 FROM Journal_Facts jf
 JOIN Journal_Dim jd ON jf.journal_id = jd.journal_id
-WHERE jf.year IN (2012, 2013)
-GROUP BY jd.title, jf.year
+WHERE jf.publication_year IN (2012, 2013)
+GROUP BY jd.title, jf.publication_year
 "
 result1 <- dbGetQuery(mysqlCon, query1)
 print(result1)
 
 # Query 2: What is the number of articles published in every journal in each quarter of 2012 through 2015?
 query2 <- "
-SELECT jd.title AS journal_title, jf.year, jf.quarter, SUM(jf.articles_count) AS total_articles
+SELECT jd.title AS journal_title, jf.publication_year, jf.quarter, SUM(jf.articles_count) AS total_articles
 FROM Journal_Facts jf
 JOIN Journal_Dim jd ON jf.journal_id = jd.journal_id
-WHERE jf.year BETWEEN 2012 AND 2015
-GROUP BY jd.title, jf.year, jf.quarter
+WHERE jf.publication_year BETWEEN 2012 AND 2015
+GROUP BY jd.title, jf.publication_year, jf.quarter
 "
 result2 <- dbGetQuery(mysqlCon, query2)
 print(result2)
 
 # Query 3: How many articles were published each quarter (across all years)?
 query3 <- "
-SELECT year, quarter, SUM(articles_count) AS total_articles
+SELECT publication_year, quarter, SUM(articles_count) AS total_articles
 FROM Journal_Facts
-GROUP BY year, quarter
+GROUP BY publication_year, quarter
 "
 result3 <- dbGetQuery(mysqlCon, query3)
 print(result3)
 
 # Query 4: How many unique authors published articles in each year for which there is data?
 query4 <- "
-SELECT year, SUM(unique_authors_count) AS total_unique_authors
+SELECT publication_year, SUM(unique_authors_count) AS total_unique_authors
 FROM Journal_Facts
-GROUP BY year
+GROUP BY publication_year
 "
 result4 <- dbGetQuery(mysqlCon, query4)
 print(result4)
@@ -137,4 +133,4 @@ print(result4)
 # Close SQLite connection and MySQL connection
 dbDisconnect(sqliteCon)
 dbDisconnect(mysqlCon)
-             
+

@@ -22,10 +22,10 @@ library(RSQLite)
 
 # Load the required packages
 library(xml2)
-library(R.utils)
 library(httr)
 
-# Define the URLs for your DTD and XML files
+
+# Define the URLs for DTD and XML files
 dtd_url <- "https://raw.githubusercontent.com/sahsahil1998/Mine-a-Database/main/pubmed-tfm-xml/pubmedXML.dtd"
 xml_url <- "https://raw.githubusercontent.com/sahsahil1998/Mine-a-Database/main/pubmed-tfm-xml/pubmedXML.xml"
 
@@ -39,15 +39,17 @@ stop_for_status(xml_response)
 
 # Read the downloaded DTD and XML content
 dtd <- content(dtd_response, "text")
-xml <- read_xml(content(xml_response, "text"))
+xml <- content(xml_response, "text")
 
-# Create a temporary DTD file
-tmp_dtd_file <- tempfile(fileext = ".dtd")
-write_lines(dtd, tmp_dtd_file)
+# Extract the DTD name
+dtd_name <- sub(".*<!DOCTYPE\\s+(\\S+).*", "\\1", dtd)
+
+# Insert the DTD reference into the XML content
+xml_with_dtd <- sub("<!DOCTYPE\\s+[^>]*>", sprintf("<!DOCTYPE %s [\n%s\n]>", dtd_name, dtd), xml)
 
 # Validate the XML against the DTD
 validation_result <- tryCatch({
-  xml_validate(xml, dtd = tmp_dtd_file)
+  xml_doc <- read_xml(xml_with_dtd)
   "XML file is valid."
 }, error = function(e) {
   sprintf("Error validating XML file: %s", e$message)
@@ -55,10 +57,6 @@ validation_result <- tryCatch({
 
 # Print the validation result
 cat(validation_result)
-
-# Clean up the temporary DTD file
-unlink(tmp_dtd_file)
-
 
 
 #################################END############################################
@@ -89,7 +87,7 @@ split_xml_file(base_dir, xml_file, "//Article", 1000)
 # set wd
 setwd("C:/Users/vknya/OneDrive/Documents/School/Northeastern/CS 5200/Practicum 2/Mine-a-Database")
 
-# Source the csvconverter.r script
+# get source for converter
 source("csvconverter.r")
 
 # set path for chunks
@@ -113,11 +111,11 @@ write_article_csv("combined_articles.csv", xml_files)
 create_tables <- function() {
   
   # Connect to DB and create tables
-  
+  setwd("C:/Users/vknya/OneDrive/Documents/School/Northeastern/CS 5200/Practicum 2/Mine-a-Database")
   # Create a new SQLite connection
   con <- dbConnect(RSQLite::SQLite(), "pubmed.db")
   
-  # Dropping tables if it exists
+  # Dropping tables if they exist
   dbExecute(con, "DROP TABLE IF EXISTS Authors")
   dbExecute(con, "DROP TABLE IF EXISTS Journals")
   dbExecute(con, "DROP TABLE IF EXISTS Articles")
@@ -125,24 +123,28 @@ create_tables <- function() {
   
   # Create the Journals table
   dbExecute(con, "
-  CREATE TABLE Journals (
-    journal_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    ISSN TEXT NOT NULL,
-    title TEXT,
-    iso_abbreviation TEXT
-  )")
+CREATE TABLE Journals (
+  journal_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ISSN TEXT NOT NULL,
+  title TEXT,
+  iso_abbreviation TEXT
+)")
   
   # Create the Articles table
   dbExecute(con, "
-  CREATE TABLE Articles (
-    PMID INTEGER PRIMARY KEY,
-    journal_id INTEGER NOT NULL,
-    article_title TEXT,
-    publication_year INTEGER,
-    publication_month INTEGER,
-    publication_day INTEGER,
-    FOREIGN KEY (journal_id) REFERENCES Journals(journal_id)
-  )")
+CREATE TABLE Articles (
+  PMID INTEGER PRIMARY KEY,
+  journal_id INTEGER NOT NULL,
+  article_title TEXT,
+  publication_year INTEGER,
+  publication_month INTEGER,
+  publication_day INTEGER,
+  volume TEXT,
+  issue TEXT,
+  issn_type TEXT, 
+  FOREIGN KEY (journal_id) REFERENCES Journals(journal_id)
+)")
+  
   
   # Create the Authors table
   dbExecute(con, "
@@ -151,9 +153,7 @@ create_tables <- function() {
     last_name TEXT,
     fore_name TEXT,
     initials TEXT,
-    suffix TEXT,
-    collective_name TEXT,
-    affiliation TEXT
+    suffix TEXT
   )")
   
   # Author to Article Link
@@ -164,13 +164,15 @@ create_tables <- function() {
     FOREIGN KEY (PMID) REFERENCES Articles(PMID),
     FOREIGN KEY (author_id) REFERENCES Authors(author_id)
   )")
- 
+  
   # Close the database connection
   dbDisconnect(con) 
   
 }
 
 create_tables()
+
+
 
 #################################END############################################
 
@@ -186,19 +188,34 @@ library(dplyr)
 library(RSQLite)
 library(tidyr)
 
-# Read the CSV file
-csv_data <- read_csv("combined_articles.csv")
+
+# Read in CSV
+csv_data <- read_csv("combined_articles.csv", col_types = cols(
+  PMID = col_character(),
+  ISSN = col_character(),
+  IssnType = col_character(), # Add this line
+  JournalTitle = col_character(),
+  ISOAbbreviation = col_character(),
+  ArticleTitle = col_character(),
+  Authors = col_character(),
+  Year = col_integer(),
+  Month = col_integer(),
+  Day = col_integer()
+))
 
 # Connect to the SQLite database
 con <- dbConnect(RSQLite::SQLite(), "pubmed.db")
 
 # Insert Journals data
 csv_data %>%
-  select(ISSN, JournalTitle, ISOAbbreviation) %>%
+  select(ISSN, JournalTitle, ISOAbbreviation) %>% # Remove IssnType from here
   filter(!is.na(ISSN) & ISSN != "") %>%
   distinct(ISSN, .keep_all = TRUE) %>%
-  rename(title = JournalTitle, iso_abbreviation = ISOAbbreviation) %>%
+  rename(title = JournalTitle, iso_abbreviation = ISOAbbreviation) %>% # Remove the renaming step for issn_type
   dbWriteTable(con, "Journals", ., append = TRUE, row.names = FALSE)
+
+
+
 
 # Map ISSN to journal_id
 journal_id_map <- dbGetQuery(con, "SELECT journal_id, ISSN FROM Journals")
@@ -208,12 +225,14 @@ csv_data <- csv_data %>%
 # Separate Authors data from the CSV file
 authors_data <- csv_data %>%
   mutate(pmid = row_number()) %>%
-  separate_rows(Authors, sep = "\\|") %>%
-  separate(Authors, c("last_name", "fore_name", "initials"), sep = ",", extra = "merge") %>%
+  separate_rows(Authors, sep = "; ") %>%
+  separate(Authors, c("last_name", "fore_name", "initials", "suffix"), sep = ", ", extra = "merge") %>%
   mutate(last_name = trimws(last_name),
          fore_name = trimws(fore_name),
-         initials = trimws(initials)) %>%
-  distinct(pmid, last_name, fore_name, initials)
+         initials = trimws(initials),
+         suffix = trimws(suffix)) %>%
+  distinct(pmid, last_name, fore_name, initials, suffix)
+
 
 # Insert Authors data
 authors_data %>%
@@ -227,19 +246,15 @@ author_id_map <- authors_data %>%
   left_join(author_id_map, by = c("last_name", "fore_name", "initials")) %>%
   select(pmid, author_id)
 
+
 # Insert Articles data
 csv_data %>%
   filter(!is.na(journal_id)) %>%
-  select(PMID, article_title = ArticleTitle, journal_id, Year, Month, Day) %>%
+  select(PMID, article_title = ArticleTitle, journal_id, publication_year = Year, publication_month = Month, publication_day = Day, volume = Volume, issue = Issue, issn_type = IssnType) %>% # Include IssnType here
   distinct() %>%
-  mutate(Year = as.integer(Year),
-         Month = as.integer(Month),
-         Day = as.integer(Day),
-         publication_year = replace_na(Year, NA_integer_),
-         publication_month = replace_na(Month, NA_integer_),
-         publication_day = replace_na(Day, NA_integer_)) %>%
-  select(PMID, article_title, journal_id, publication_year, publication_month, publication_day) %>%
+  replace_na(list(publication_year = NA_integer_, publication_month = NA_integer_, publication_day = NA_integer_, volume = NA_character_, issue = NA_character_, issn_type = NA_character_)) %>%
   dbWriteTable(con, "Articles", ., append = TRUE, row.names = FALSE)
+
 
 
 # Insert Article_author data
@@ -248,9 +263,9 @@ author_id_map %>%
   distinct() %>%
   dbWriteTable(con, "Article_author", ., append = TRUE, row.names = FALSE)
 
-
 # Close the database connection
 dbDisconnect(con)
+
 
 
 #################################END############################################

@@ -1,6 +1,3 @@
-
-
-
 library(XML)
 
 split_xml_file <- function(base_dir, xml_file, element_type, chunk_size) {
@@ -19,6 +16,10 @@ split_xml_file <- function(base_dir, xml_file, element_type, chunk_size) {
     dir.create(chunks_dir)
   }
   
+  # Create a progress bar
+  total_chunks <- length(chunks)
+  pb <- txtProgressBar(min = 0, max = total_chunks, style = 3)
+  
   # Write each chunk to a new file
   for (i in seq_along(chunks)) {
     chunk <- chunks[[i]]
@@ -35,5 +36,11 @@ split_xml_file <- function(base_dir, xml_file, element_type, chunk_size) {
     
     # Save the new document
     saveXML(chunk_doc, file.path(chunks_dir, output_file))
+    
+    # Update the progress bar
+    setTxtProgressBar(pb, i)
   }
+  
+  # Close the progress bar
+  close(pb)
 }
