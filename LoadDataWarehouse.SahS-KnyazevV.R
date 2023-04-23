@@ -147,6 +147,7 @@ query5 <- "
   WHERE publication_year BETWEEN 1975 AND 1979
   GROUP BY journal_id, publication_year, publication_quarter
   ORDER BY journal_id, publication_year, publication_quarter
+  LIMIT 10
 "
 result5 <- dbGetQuery(mysqlCon, query5)
 print(result5)
