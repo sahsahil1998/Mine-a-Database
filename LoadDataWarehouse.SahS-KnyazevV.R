@@ -140,7 +140,7 @@ GROUP BY publication_year
 result4 <- dbGetQuery(mysqlCon, query4)
 print(result4)
 
-# Query 5 Publications by quarter
+# Query 5: Total Articles per quarter per year for journal ID 1
 query5 <- "
   SELECT journal_id, publication_year, publication_quarter, SUM(articles_count) AS total_articles
   FROM Journal_Facts
@@ -152,7 +152,7 @@ query5 <- "
 result5 <- dbGetQuery(mysqlCon, query5)
 print(result5)
 
-# Query 6 Publications by quarter 
+# Query 6: Publications by Quarter across all years
 query6 <- "
   SELECT publication_quarter, SUM(articles_count) AS total_articles
   FROM Journal_Facts
