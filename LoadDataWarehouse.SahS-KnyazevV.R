@@ -42,15 +42,17 @@ dbExecute(mysqlCon, "CREATE TABLE Journal_Dim (
   title VARCHAR(255) NOT NULL
 ) ENGINE=InnoDB")
 
-# Create the Fact table for Journal facts
 dbExecute(mysqlCon, "CREATE TABLE Journal_Facts (
   journal_fact_id INTEGER AUTO_INCREMENT PRIMARY KEY,
   journal_id INTEGER,
   publication_year INTEGER,
+  publication_quarter INTEGER,
+  publication_month INTEGER,
   articles_count INTEGER,
   unique_authors_count INTEGER,
   FOREIGN KEY (journal_id) REFERENCES Journal_Dim(journal_id)
 ) ENGINE=InnoDB")
+
 
 # SQLite connection
 sqliteCon <- dbConnect(SQLite(), "pubmed.db")
@@ -73,18 +75,16 @@ journal_data <- dbGetQuery(sqliteCon, "SELECT DISTINCT journal_id, title FROM Jo
 dbWriteTable(mysqlCon, "Journal_Dim", journal_data, append = TRUE, row.names = FALSE)
 
 journal_facts_data <- dbGetQuery(sqliteCon, "
-  SELECT j.journal_id, a.publication_year,
+  SELECT j.journal_id, a.publication_year, 
+         a.publication_month,
+         (a.publication_month - 1) / 3 + 1 AS publication_quarter,
          COUNT(DISTINCT a.pmid) AS articles_count, 
          COUNT(DISTINCT aa.author_id) AS unique_authors_count
   FROM Articles a
   JOIN Journals j ON a.journal_id = j.journal_id
   JOIN Article_author aa ON a.pmid = aa.pmid
-  GROUP BY j.journal_id, a.publication_year
+  GROUP BY j.journal_id, a.publication_year, publication_quarter, publication_month
 ")
-
-
-#print(journal_data)
-#print(journal_facts_data)
 
 
 dbExecute(mysqlCon, "TRUNCATE TABLE Journal_Facts")
@@ -96,17 +96,17 @@ create_insert_statement <- function(row) {
           row$journal_id, row$publication_year, row$articles_count, row$unique_authors_count)
 }
 
-# Loop through each row of the DataFrame and insert the row into the MySQL table
+# Insert the entire DataFrame into the MySQL table
+dbWriteTable(mysqlCon, "Journal_Facts", journal_facts_data, append = TRUE, row.names = FALSE)
+
+
+
 for (i in 1:nrow(journal_facts_data)) {
   insert_statement <- create_insert_statement(journal_facts_data[i,])
   dbExecute(mysqlCon, insert_statement)
 }
 
 
-
-
-# Populate the Journal Facts table
-#dbWriteTable(mysqlCon, "Journal_Facts", journal_facts_data, append = TRUE, row.names = FALSE)
 
 
 factTab <- dbGetQuery(mysqlCon, "SELECT * FROM Journal_Facts LIMIT 20")
