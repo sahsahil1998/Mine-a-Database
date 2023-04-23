@@ -50,11 +50,19 @@ top_5_journals
 ```{r, journal_per_year, eval = T, warning = F}
 # Store the result to a dataframe
 journal_per_year <- dbGetQuery(mysqlCon, 
-   "SELECT jd.title AS journal_title, jf.year, jf.quarter, SUM(jf.articles_count) AS sumPerQuarter
+   "SELECT jd.title AS journal_title, jf.publication_year, jf.quarter, SUM(jf.articles_count) AS sumPerQuarter
     FROM Journal_Facts jf JOIN Journal_Dim jd ON jf.journal_id = jd.journal_id
-    GROUP BY jd.title, jf.year, jf.quarter")
-journal_per_year
+    GROUP BY jd.title, jf.publication_year, jf.quarter")
+
 ```
+
+
+
+
+
+
+
+
 ```{r}
 ggplot(data = journal_per_year, aes(x = year, y = sumPerQuarter, fill = factor(quarter))) +
   geom_bar(stat = "identity", position = "dodge") +
