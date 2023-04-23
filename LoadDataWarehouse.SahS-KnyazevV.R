@@ -8,6 +8,10 @@
 #              analytical queries on the data and prints the results.
 # ----------------------------------------------------------------------------
 
+
+
+
+#################################START##########################################
 #loading the libraries
 library(RMySQL)
 library(RSQLite)
@@ -57,17 +61,6 @@ dbExecute(mysqlCon, "CREATE TABLE Journal_Facts (
 # SQLite connection
 sqliteCon <- dbConnect(SQLite(), "pubmed.db")
 
-
-#total_articles_sqlite <- dbGetQuery(sqliteCon, "SELECT COUNT(*) as total_articles FROM Articles")
-#print(total_articles_sqlite)
-
-#total_authors_sqlite <- dbGetQuery(sqliteCon, "SELECT COUNT(DISTINCT author_id) as total_authors FROM Article_author")
-#print(total_authors_sqlite)
-
-#articles_by_year_sqlite <- dbGetQuery(sqliteCon, "SELECT publication_year, COUNT(*) as total_articles FROM Articles WHERE publication_year BETWEEN 1975 AND 1979 GROUP BY publication_year")
-#print(articles_by_year_sqlite)
-
-
 # Extract data from the SQLite database for the Journal Dimension table
 journal_data <- dbGetQuery(sqliteCon, "SELECT DISTINCT journal_id, title FROM Journals")
 
@@ -99,28 +92,6 @@ create_insert_statement <- function(row) {
 # Insert the entire DataFrame into the MySQL table
 dbWriteTable(mysqlCon, "Journal_Facts", journal_facts_data, append = TRUE, row.names = FALSE)
 
-
-
-for (i in 1:nrow(journal_facts_data)) {
-  insert_statement <- create_insert_statement(journal_facts_data[i,])
-  dbExecute(mysqlCon, insert_statement)
-}
-
-
-
-
-factTab <- dbGetQuery(mysqlCon, "SELECT * FROM Journal_Facts LIMIT 20")
-print(factTab)
-factDim <- dbGetQuery(mysqlCon, "SELECT * FROM Journal_Dim LIMIT 20")
-print(factDim)
-
-# Check MySQL Journal_Dim table
-journal_dim_check <- dbGetQuery(mysqlCon, "SELECT * FROM Journal_Dim")
-print(journal_dim_check)
-
-# Check MySQL Journal_Facts table
-journal_facts_check <- dbGetQuery(mysqlCon, "SELECT * FROM Journal_Facts")
-print(journal_facts_check)
 
 
 # Query 1 Find the top 10 journals with the highest number of articles published in 1975.
@@ -169,9 +140,29 @@ GROUP BY publication_year
 result4 <- dbGetQuery(mysqlCon, query4)
 print(result4)
 
+# Query 5 Publications by quarter
+query5 <- "
+  SELECT journal_id, publication_year, publication_quarter, SUM(articles_count) AS total_articles
+  FROM Journal_Facts
+  WHERE publication_year BETWEEN 1975 AND 1979
+  GROUP BY journal_id, publication_year, publication_quarter
+  ORDER BY journal_id, publication_year, publication_quarter
+"
+result5 <- dbGetQuery(mysqlCon, query5)
+print(result5)
 
+# Query 6 Publications by quarter 
+query6 <- "
+  SELECT publication_quarter, SUM(articles_count) AS total_articles
+  FROM Journal_Facts
+  GROUP BY publication_quarter
+  ORDER BY publication_quarter
+"
+result6 <- dbGetQuery(mysqlCon, query6)
+print(result6)
 
 # Close SQLite connection and MySQL connection
 dbDisconnect(sqliteCon)
 dbDisconnect(mysqlCon)
 
+#################################END############################################
